@@ -1,4 +1,9 @@
 import datetime
+import json
+import re
+import xml.etree.ElementTree as ET
+
+import pytest
 
 import fapy.api as api
 import fapy.server as server
@@ -6,50 +11,86 @@ import fapy.server as server
 import auth
 
 
+@pytest.fixture
+def session():
+    return api.Session(auth.username, auth.key, season=2017)
+
+
+def check_frame(frame, test_data):
+    check_attr(frame.attr)
+    assert isinstance(frame, server.Dframe)
+    assert frame.attr["frame_type"] == test_data["frame_type"]
+    assert frame.shape == test_data["shape"]
+    col, row, value = test_data["spotcheck"]
+    assert frame[col][row] == value
+    json.loads(frame.attr["text"])  # Verify that "text" is valid JSON text.
+
+
+def check_dict(dictionary, test_data):
+    check_attr(dictionary)
+    assert isinstance(dictionary, dict)
+    assert dictionary["frame_type"] == test_data["frame_type"]
+    if dictionary["text_format"] == "json":
+        return json.loads(dictionary["text"])  # Verify "text" is valid JSON.
+    elif dictionary["text_format"] == "xml":
+        return ET.fromstring(dictionary["text"]) # Verify "text is valid XML.
+    else:
+        pytest.fail("dict['text_format'] invalid. Should be 'xml' or 'json'."
+                    "Instead contains " + dictionary["text_format"])
+
+
+def check_attr(attr):
+    assert attr["code"] == 200
+    assert server.httpdate_to_datetime(attr["Last-Modified"])
+    assert server.httpdate_to_datetime(attr["time_downloaded"], False)
+    # todo (stacy.irwin) revise to check local data.
+
+    assert attr["mod_since"] is None
+    assert attr["only_mod_since"] is None
+    assert re.match("https://frc-api.firstinspires.org/v2.0/20",
+                    attr["url"]) is not None
+    check_local(attr)
+
+
+def check_local(attr):
+    assert (attr["local_data"] is True) or (attr["local_data"] is False)
+    if attr["local_data"]:
+        assert server.httpdate_to_datetime(attr["local_time"], False)
+        assert re.match("https://frc-api.firstinspires.org/v2.0/20",
+                    attr["requested_url"]) is not None
+    else:
+        assert attr["local_time"] is None
+        assert attr["requested_url"] == attr["url"]
+
+
 class TestSeason(object):
 
-    def test_2017(self):
-        sn = api.Session(auth.username, auth.key, season=2017)
-        season = api.get_season(sn)
-        assert season.attr["code"] == 200
-        assert isinstance(season, server.Dframe)
-        assert season.attr["frame_type"] == "season"
-        assert season.shape == (2, 8)
-        assert season["teamCount"][0] == 3372
+    def test_2017(self, session):
+        season = api.get_season(session)
+        tdata = {"frame_type": "season", "shape": (2, 8),
+                 "spotcheck": ("teamCount", 0, 3372)}
+        check_frame(season, tdata)
 
-    def test_2016(self):
-        sn = api.Session(auth.username, auth.key, season=2016)
-        season = api.get_season(sn)
-        assert isinstance(season, server.Dframe)
-        assert season.attr["frame_type"] == "season"
-        assert season.shape == (1, 8)
-        assert season["teamCount"][0] == 3140
+    def test_2016(self, session):
+        session.season = 2016
+        season = api.get_season(session)
+        tdata = {"frame_type": "season", "shape": (1, 8),
+                 "spotcheck": ("teamCount", 0, 3140)}
+        check_frame(season, tdata)
 
-    def test_xml(self):
-        sn = api.Session(auth.username, auth.key, data_format="xml")
-        season = api.get_season(sn)
-        assert isinstance(season, dict)
-        assert season["frame_type"] == "season"
-        # try:
-        #     xml = ET.fromstring(season_summary["response_text"])
-        # except ET.ParseError:
-        #     assert (False, "XML parsing error, " +
-        #             "season_summary did not return valid XML.")
-        # else:
-        #     pass
-        # finally:
-        #     pass
+    def test_xml(self, session):
+        session.data_format = "xml"
+        season = api.get_season(session)
+        tdata = {"frame_type": "season"}
+        check_dict(season, tdata)
 
-    def test_local(self):
-        sn = api.Session(auth.username, auth.key, season=2017,
-                         source="local")
-        season = api.get_season(sn)
+    def test_local(self, session):
+        session.source = "local"
+        season = api.get_season(session)
+        tdata = {"frame_type": "season", "shape": (2, 8),
+                 "spotcheck": ("teamCount", 0, 3372)}
+        check_frame(season, tdata)
         assert isinstance(season, server.Dframe)
-        assert season.attr["frame_type"] == "season"
-        assert season.shape == (2, 8)
-        assert season["teamCount"][0] == 3372
-        assert season.attr["local_data"]
-        assert season.attr["local_time"] is not None
 
 
 class TestDistricts(object):

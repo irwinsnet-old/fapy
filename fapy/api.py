@@ -62,15 +62,15 @@ def get_season(session, mod_since=None, only_mod_since=None):
             changed since the date and time provided. Optional.
 
     Returns:
-        If Session.format == "json" or "xml", returns a Python
+        If Session.data_format == "json" or "xml", returns a Python
         dictionary object containing the response text and additional
-        metadata. If Session.format == "dataframe", returns an instances
+        metadata. If Session.data_format == "dataframe", returns an instances
         of fapy.http.FirstDF, which is a Pandas dataframe with
         an additional `attr` property that contains a Python dictionary
         with additional metadata.
     """
     response = _send_request(session, "season", None, mod_since, only_mod_since)
-    if session.format == "dataframe":
+    if session.data_format == "dataframe":
         response_df = server.Dframe(response, "FRCChampionships",
                                     ["eventCount", "gameName", "kickoff",
                                      "rookieStart", "teamCount"])
@@ -95,15 +95,15 @@ def get_status(session, mod_since=None, only_mod_since=None):
             changed since the date and time provided. Optional.
 
     Returns:
-        If session.format == "json" or "xml", returns a Python
+        If session.data_format == "json" or "xml", returns a Python
         dictionary object containing the response text and additional
-        metadata. If session.format == "dataframe", returns an instances
-        of fapy.classes.FirstDF, which is a Pandas dataframe with
+        metadata. If session.data_format == "dataframe", returns an instances
+        of fapy.server.Dframe, which is a Pandas dataframe with
         an additional `attr` property that contains a Python dictionary
         with additional metadata.
     """
     response = _send_request(session, "status", None, mod_since, only_mod_since)
-    if session.format == "dataframe":
+    if session.data_format == "dataframe":
         response_df = server.Dframe(response)
         return response_df
     else:
@@ -126,16 +126,16 @@ def get_districts(session, mod_since=None, only_mod_since=None):
             changed since the date and time provided. Optional.
 
     Returns:
-        If session.format == "json" or "xml", returns a Python
+        If session.data_format == "json" or "xml", returns a Python
         dictionary object containing the response text and additional
-        metadata. If session.format == "dataframe", returns an instances
+        metadata. If session.data_format == "dataframe", returns an instances
         of fapy.classes.http.FirstDf, which is a Pandas dataframe with
         an additional `attr` property that contains a Python dictionary
         with additional metadata.
     """
     response = _send_request(session, "districts", None, mod_since,
                              only_mod_since)
-    if session.format == "dataframe":
+    if session.data_format == "dataframe":
         response_df = server.Dframe(response, "districts", ["districtCount"])
         return response_df
     else:
@@ -169,10 +169,10 @@ def get_events(session,  # pylint: disable=too-many-arguments
             changed since the date and time provided. Optional.
 
     Returns:
-        If session.format == "json" or "xml", returns a Python
+        If session.data_format == "json" or "xml", returns a Python
         dictionary object containing the response text and additional
-        metadata. If session.format == "dataframe", returns an instances
-        of fapy.classes.FirstDF, which is a Pandas dataframe with
+        metadata. If session.data_format == "dataframe", returns an instances
+        of fapy.server.Dframe, which is a Pandas dataframe with
         an additional `attr` property that contains a Python dictionary
         with additional metadata.
 
@@ -201,7 +201,7 @@ def get_events(session,  # pylint: disable=too-many-arguments
                   "excludeDistrict": exclude_district}
     response = _send_request(session, "events", event_args, mod_since,
                              only_mod_since)
-    if session.format == "dataframe":
+    if session.data_format == "dataframe":
         response_df = server.Dframe(response, "Events", ["eventCount"])
         return response_df
     else:
@@ -234,7 +234,7 @@ def get_teams(session,  # pylint: disable=too-many-arguments
             is omitted, the FIRST API and this function will return
             only the first page of data. Users can retrieve subsequent
             pages of data by specifying a page number of '2' or higher.
-            This argument is not needed if the dataframe format is
+            This argument is not needed if the dataframe data_format is
             requested becuase the function will request all pages of
             data and combine them into one dataframe. Optional.
         mod_since: A string containing an HTTP formatted date and time.
@@ -246,10 +246,10 @@ def get_teams(session,  # pylint: disable=too-many-arguments
             changed since the date and time provided. Optional.
 
     Returns:
-        If session.format == "json" or "xml", returns a Python
+        If session.data_format == "json" or "xml", returns a Python
         dictionary object containing the response text and additional
-        metadata. If session.format == "dataframe", returns an instances
-        of fapy.classes.FirstDF, which is a Pandas dataframe with
+        metadata. If session.data_format == "dataframe", returns an instances
+        of fapy.server.Dframe, which is a Pandas dataframe with
         an additional `attr` property that contains a Python dictionary
         with additional metadata.
     """
@@ -259,9 +259,9 @@ def get_teams(session,  # pylint: disable=too-many-arguments
                               or state is not None)):
         raise server.ArgumentError("If you specify team, you cannot "
                                    "specify event, district, or state.")
-    if session.format == "dataframe" and page is not None:
+    if session.data_format == "dataframe" and page is not None:
         warnings.warn("Do not specify page argument for dataframe "
-                      "format.")
+                      "data_format.")
 
     cmd = "teams"
     team_args = {"teamNumber": team, "eventCode": event,
@@ -269,7 +269,7 @@ def get_teams(session,  # pylint: disable=too-many-arguments
                  "page": page}
     response = _send_request(session, cmd, team_args, mod_since,
                              only_mod_since)
-    if session.format != "dataframe":
+    if session.data_format != "dataframe":
         return response
 
     meta_fields = ["teamCountTotal", "teamCountPage",
@@ -292,6 +292,42 @@ def get_teams(session,  # pylint: disable=too-many-arguments
 def get_schedule(session, event,  # pylint: disable=too-many-arguments
                  level="qual", team=None, start=None, end=None, mod_since=None,
                  only_mod_since=None):
+    """Rerieves the FRC competition match schedule.
+
+    Args:
+        session: An instance of fapy.classes.Session that contains
+            a valid username and authorization key.
+        event: A string containing the FIRST API event code. If
+            included, function will return only teams that are
+            competing in that event. Use fapy.api.get_events to lookup
+            event codes. Optional.
+        level: A string. If "qual", function will return the
+            schedule for qualiification matches. If "playoff", will
+            return schedule for playoff matches. Optional, default is
+            "qual".
+        team: FRC team number as a string. If listed, function will
+            return data only for that team. Optional.
+        start: An integer. If specified, function will return
+            matches with match number equal to or higher than start.
+        end: An integer. If specified, function will return matches
+            with match number equal to or lower than end.
+        mod_since: A string containing an HTTP formatted date and time.
+            Causes function to return None if no changes have been
+            made to the requested data since the date and time provided.
+            Optional.
+        only_mod_since: A string containing an HTTP formatted date and
+            time. Causes function to only return data that has
+            changed since the date and time provided. Optional.
+
+  Returns:
+        If session.data_format == "json" or "xml", returns a Python
+        dictionary object containing the response text and additional
+        metadata. If session.data_format == "dataframe", returns an instances
+        of fapy.server.Dframe, which is a Pandas dataframe with
+        an additional `attr` property that contains a Python dictionary
+        with additional metadata.
+
+    """
 
     sched_args = collections.OrderedDict([("/eventCode", event),
                                           ("teamNumber", team),
@@ -301,11 +337,51 @@ def get_schedule(session, event,  # pylint: disable=too-many-arguments
 
     response = _send_request(session, "schedule", sched_args, mod_since,
                              only_mod_since)
-    if session.format == "dataframe":
+    if session.data_format == "dataframe":
         response_df = server.Dframe(response, "Teams",
                                     ["matchNumber", "description", "field",
                                      "startTime", "tournamentLevel"],
                                     "Schedule")
+        return response_df
+    else:
+        return response
+
+
+def get_hybrid(session, event,  # pylint: disable=too-many-arguments
+               level="qual", start=None, end=None, mod_since=None,
+               only_mod_since=None):
+    """
+
+    Args:
+        session:
+        event:
+        level:
+        start:
+        end:
+        mod_since:
+        only_mod_since:
+
+    Returns:
+
+    """
+    hybrid_args = collections.OrderedDict([("/eventCode", event),
+                                           ("/tournamentLevel", level),
+                                           ("/hybrid", "hybrid"),
+                                           ("start", start),
+                                           ("end", end)])
+
+    response = _send_request(session, "schedule", hybrid_args, mod_since,
+                             only_mod_since)
+    if session.data_format == "dataframe":
+        response_df = server.Dframe(response, "Teams",
+                                    ["matchNumber", "description","startTime",
+                                     "tournamentLevel", "actualStartTime",
+                                     "postResultTime", "scoreRedFinal",
+                                     "scoreRedFoul", "scoreRedAuto",
+                                     "scoreBlueFinal", "scoreBlueFoul",
+                                     "scoreBlueAuto"],
+                                    "Schedule")
+        response_df.attr["frame_type"] = "hybrid"
         return response_df
     else:
         return response
@@ -359,7 +435,7 @@ class Session:
         self.username = username
         self.key = key
         self.season = season
-        self.format = data_format
+        self.data_format = data_format
         self.source = source
 
     @property
@@ -431,7 +507,7 @@ class Session:
                              "and less than current year + 1.")
 
     @property
-    def format(self):
+    def data_format(self):
         """String specifying format of output from fapy functions.
 
         *Type:* String
@@ -441,20 +517,20 @@ class Session:
             * ``ValueError`` if other than *dataframe*, *json*, or
               *xml*.
         """
-        return self._format
+        return self._data_format
 
-    @format.setter
-    def format(self, format_):
+    @data_format.setter
+    def data_format(self, data_format):
 
-        error_msg = ("The format property must be a string containing "
+        error_msg = ("The data_format property must be a string containing "
                      "'dataframe', 'json', or 'xml' "
                      "(case insensitive).")
-        if not isinstance(format_, str):
+        if not isinstance(data_format, str):
             raise TypeError(error_msg)
-        elif format_.lower() not in ["dataframe", "json", "xml"]:
+        elif data_format.lower() not in ["dataframe", "json", "xml"]:
             raise ValueError(error_msg)
         else:
-            self._format = format_.lower()  # pylint: disable=W0201
+            self._data_format = data_format.lower()  # pylint: disable=W0201
             # pylint W0201: attribute-defined-outside-init
 
     @property

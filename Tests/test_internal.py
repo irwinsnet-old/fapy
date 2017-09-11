@@ -62,15 +62,15 @@ class TestHttpDate(object):
 
     def test_http_date(self):
         date_str1= "Wed, 30 Aug 2017 06:49:32 GMT"
-        date_dt1 = server.httpdate_to_datetime(date_str1)
+        date_dt1 = server.httpdate_to_datetime(date_str1, True)
         assert date_dt1.tzname() == "GMT"
         assert date_dt1.hour == 6
         assert date_dt1.month == 8
 
-        date_str2 = server.datetime_to_httpdate(date_dt1)
+        date_str2 = server.datetime_to_httpdate(date_dt1, True)
         assert date_str1 == date_str2
 
-        date_str3 = server.httpdate_addsec(date_str1)
+        date_str3 = server.httpdate_addsec(date_str1, True)
         assert date_str3 == "Wed, 30 Aug 2017 06:49:33 GMT"
 
 

@@ -72,11 +72,14 @@ def build_url(session, command, http_args=None):
     return url
 
 
-def httpdate_to_datetime(http_date):
+def httpdate_to_datetime(http_date, gmt=True):
     """Converts a HTTP datetime string to a Python datetime object.
 
     Args:
         http_date: A string formatted as an HTTP date and time.
+        gmt: If True, sets timezone of resulting datetime object to
+            GMT. Otherwise datetime object is timezone unaware.
+            Optional, default is True.
 
     Returns: A Python datetime object that is timezone aware, set to
         the GMT time zone. Returns False if the http_date argument is
@@ -87,7 +90,12 @@ def httpdate_to_datetime(http_date):
         and time.
     """
     try:
-        dtm = datetime.datetime.strptime(http_date, "%a, %d %b %Y %H:%M:%S %Z")
+        if gmt:
+            dtm = datetime.datetime.strptime(http_date,
+                                             "%a, %d %b %Y %H:%M:%S %Z")
+        else:
+            dtm = datetime.datetime.strptime(http_date,
+                                             "%a, %d %b %Y %H:%M:%S")
     except ValueError:
         warn_msg = ("Incorrect date-time format passed as argument. "
                     "Argument has been ignored."
@@ -97,29 +105,39 @@ def httpdate_to_datetime(http_date):
         warnings.warn(warn_msg, UserWarning)
         return False
     else:
-        dtm = dtm.replace(tzinfo=datetime.timezone(datetime.timedelta(hours=0),
-                                                   "GMT"))
+        if gmt:
+            dtm = dtm.replace(
+                tzinfo=datetime.timezone(datetime.timedelta(hours=0), "GMT"))
         return dtm
 
 
-def datetime_to_httpdate(date_time):
+def datetime_to_httpdate(date_time, gmt=True):
     """Converts a Python datetime object to an HTTP datetime string.
 
     Args:
         date_time: A Python datetime object.
+        gmt: If true, http date string will indicate time is in GMT
+            timezone. Optional, default value is True.
 
     Returns: A string formatted as an HTTP datetime, using the GMT
         timezone.
     """
-    fmt_string = "%a, %d %b %Y %H:%M:%S %Z"
+    if gmt:
+        tzone_gmt = datetime.timezone(datetime.timedelta(hours=0), "GMT")
+        date_time = date_time.replace(tzinfo=tzone_gmt)
+        fmt_string = "%a, %d %b %Y %H:%M:%S %Z"
+    else:
+        fmt_string = "%a, %d %b %Y %H:%M:%S"
     return datetime.datetime.strftime(date_time, fmt_string)
 
 
-def httpdate_addsec(http_date):
+def httpdate_addsec(http_date, gmt=True):
     """Adds one second to an HTTP datetime string.
 
     Args:
         http_date: An HTTP datetime string.
+        gmt: If true, timezone of resulting datetime object will be set
+            to GMT. Optional, default is True.
 
     Returns:
         An HTTP datetime string that is one second later than the
@@ -128,13 +146,13 @@ def httpdate_addsec(http_date):
     Raises:
         ValueError if http_date is not a vallid HTTP datetime string.
     """
-    dtm = httpdate_to_datetime(http_date)
+    dtm = httpdate_to_datetime(http_date, gmt)
     if dtm:
         dtm_new = dtm + datetime.timedelta(seconds=1)
     else:
         raise ValueError("http_date argument is not a valid HTTP datetime"
                          "string.")
-    return datetime_to_httpdate(dtm_new)
+    return datetime_to_httpdate(dtm_new, gmt)
 
 
 def send_http_request(session, url, cmd, mod_since=None, only_mod_since=None):
@@ -160,11 +178,11 @@ def send_http_request(session, url, cmd, mod_since=None, only_mod_since=None):
             changed since the date and time provided. Optional.
 
     Returns:
-        If session.format == "dataframe", returns an instances of
+        If session.data_format == "dataframe", returns an instances of
         fapy.classes.FirstDF, which is a Pandas dataframe with
         an `attr` property. The `attr` property is a Python dictionary
         with the keys listed below.
-        If session.format == "schedule.json" or "xml", returns a Python
+        If session.data_format == "schedule.json" or "xml", returns a Python
         dictionary object with the keys listed below.
 
         text: The JSON or XML response text.
@@ -185,10 +203,13 @@ def send_http_request(session, url, cmd, mod_since=None, only_mod_since=None):
     raw_token = session.username + ":" + session.key
     token = "Basic " + base64.b64encode(raw_token.encode()).decode()
 
-    if session.format == "xml":
+    data = {}
+    if session.data_format == "xml":
         format_header = "application/xml"
+        data["text_format"] = "xml"
     else:
         format_header = "application/schedule.json"
+        data["text_format"] = "json"
 
     hdrs = {"Accept": format_header, "Authorization": token}
     if mod_since is not None and httpdate_to_datetime(mod_since):
@@ -197,7 +218,6 @@ def send_http_request(session, url, cmd, mod_since=None, only_mod_since=None):
         hdrs["FMS-OnlyModifiedSince"] = only_mod_since
 
     # Submit HTTP request
-    data = {}
     req = urllib.request.Request(url, headers=hdrs)
     try:
         with urllib.request.urlopen(req) as resp:
@@ -215,11 +235,11 @@ def send_http_request(session, url, cmd, mod_since=None, only_mod_since=None):
         else:
             raise
 
-    local_time = datetime.datetime.now().strftime(
-        "%a, %d %b %Y %H:%M:%S")
-    data["time_downloaded"] = local_time
+    data["time_downloaded"] = datetime_to_httpdate(datetime.datetime.now(),
+                                                   False)
     data["local_data"] = False
     data["local_time"] = None
+    data["requested_url"] = data["url"]
     data["frame_type"] = cmd
     data["mod_since"] = mod_since
     data["only_mod_since"] = only_mod_since
@@ -240,7 +260,7 @@ def send_local_request(session, url, cmd):
     """
 
     # Determine API command from URL
-    if session.format.lower() == "xml":
+    if session.data_format.lower() == "xml":
         filename = cmd + "_xml.pickle"
     else:
         filename = cmd + "_json.pickle"
@@ -250,8 +270,7 @@ def send_local_request(session, url, cmd):
     with open(filename, 'rb') as file:
         local_data = pickle.load(file)
 
-    local_time = datetime.datetime.now().strftime(
-        "%a, %d %b %Y %H:%M:%S")
+    local_time = datetime_to_httpdate(datetime.datetime.now(), False)
     local_data["local_data"] = True
     local_data["local_time"] = local_time
     local_data["requested_url"] = url
