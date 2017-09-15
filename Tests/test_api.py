@@ -1,13 +1,13 @@
 import datetime
 import json
 import re
+# noinspection PyPep8Naming
 import xml.etree.ElementTree as ET
 
 import pytest
 
 import fapy.api as api
 import fapy.server as server
-
 import auth
 
 
@@ -16,92 +16,109 @@ def session():
     return api.Session(auth.username, auth.key, season=2017)
 
 
-def check_frame(frame, test_data):
-    check_attr(frame.attr)
-    assert isinstance(frame, server.Dframe)
-    assert frame.attr["frame_type"] == test_data["frame_type"]
-    assert frame.shape == test_data["shape"]
-    col, row, value = test_data["spotcheck"]
-    assert frame[col][row] == value
-    json.loads(frame.attr["text"])  # Verify that "text" is valid JSON text.
+class CheckResults(object):
 
+    @staticmethod
+    def frame(frame, test_data):
+        CheckResults.attr(frame.attr)
+        assert isinstance(frame, server.Dframe)
+        assert frame.attr["frame_type"] == test_data["frame_type"]
+        assert frame.shape == test_data["shape"]
+        col, row, value = test_data["spotcheck"]
+        assert frame[col][row] == value
+        json.loads(frame.attr["text"])  # Verify that "text" is valid JSON text.
 
-def check_dict(dictionary, test_data):
-    check_attr(dictionary)
-    assert isinstance(dictionary, dict)
-    assert dictionary["frame_type"] == test_data["frame_type"]
-    if dictionary["text_format"] == "json":
-        return json.loads(dictionary["text"])  # Verify "text" is valid JSON.
-    elif dictionary["text_format"] == "xml":
-        return ET.fromstring(dictionary["text"]) # Verify "text is valid XML.
-    else:
-        pytest.fail("dict['text_format'] invalid. Should be 'xml' or 'json'."
-                    "Instead contains " + dictionary["text_format"])
+    @staticmethod
+    def dict(dictionary, test_data):
+        CheckResults.attr(dictionary)
+        assert isinstance(dictionary, dict)
+        assert dictionary["frame_type"] == test_data["frame_type"]
+        if dictionary["text_format"] == "json":
+            return json.loads(dictionary["text"])  # Verify "text" valid JSON.
+        elif dictionary["text_format"] == "xml":
+            return ET.fromstring(dictionary["text"])  # Verify "text valid XML.
+        else:
+            pytest.fail("dict['text_format'] invalid. Should be 'xml' or "
+                        "'json'. Instead contains " + dictionary["text_format"])
 
-
-def check_attr(attr):
-    assert attr["code"] == 200
-    assert server.httpdate_to_datetime(attr["Last-Modified"])
-    assert server.httpdate_to_datetime(attr["time_downloaded"], False)
-    # todo (stacy.irwin) revise to check local data.
-
-    assert attr["mod_since"] is None
-    assert attr["only_mod_since"] is None
-    assert re.match("https://frc-api.firstinspires.org/v2.0/20",
-                    attr["url"]) is not None
-    check_local(attr)
-
-
-def check_local(attr):
-    assert (attr["local_data"] is True) or (attr["local_data"] is False)
-    if attr["local_data"]:
-        assert server.httpdate_to_datetime(attr["local_time"], False)
+    @staticmethod
+    def attr(attr):
+        assert attr["code"] == 200
+        assert server.httpdate_to_datetime(attr["Last-Modified"])
+        assert server.httpdate_to_datetime(attr["time_downloaded"], False)
+        assert attr["mod_since"] is None
+        assert attr["only_mod_since"] is None
         assert re.match("https://frc-api.firstinspires.org/v2.0/20",
-                    attr["requested_url"]) is not None
-    else:
-        assert attr["local_time"] is None
-        assert attr["requested_url"] == attr["url"]
+                        attr["url"]) is not None
+        CheckResults.local(attr)
+
+    @staticmethod
+    def local(attr):
+        assert (attr["local_data"] is True) or (attr["local_data"] is False)
+        if attr["local_data"]:
+            assert server.httpdate_to_datetime(attr["local_time"], False)
+            assert re.match("https://frc-api.firstinspires.org/v2.0/20",
+                            attr["requested_url"]) is not None
+        else:
+            assert attr["local_time"] is None
+            assert attr["requested_url"] == attr["url"]
+
+    @staticmethod
+    def mod_since(result, mod_since):
+        if isinstance(result, server.Dframe):
+            attr = result.attr
+            assert result["If-Modified-Since"][0] == mod_since
+        else:
+            attr = result
+        assert attr["text"] is None
+        assert attr["code"] == 304
+        assert attr["mod_since"] == mod_since
 
 
 class TestSeason(object):
-
+    # noinspection PyShadowingNames
     def test_2017(self, session):
         season = api.get_season(session)
         tdata = {"frame_type": "season", "shape": (2, 8),
                  "spotcheck": ("teamCount", 0, 3372)}
-        check_frame(season, tdata)
+        CheckResults.frame(season, tdata)
 
+    # noinspection PyShadowingNames
     def test_2016(self, session):
         session.season = 2016
         season = api.get_season(session)
         tdata = {"frame_type": "season", "shape": (1, 8),
                  "spotcheck": ("teamCount", 0, 3140)}
-        check_frame(season, tdata)
+        CheckResults.frame(season, tdata)
 
+    # noinspection PyShadowingNames
     def test_xml(self, session):
         session.data_format = "xml"
         season = api.get_season(session)
         tdata = {"frame_type": "season"}
-        check_dict(season, tdata)
+        CheckResults.dict(season, tdata)
 
+    # noinspection PyShadowingNames
     def test_local(self, session):
         session.source = "local"
         season = api.get_season(session)
         tdata = {"frame_type": "season", "shape": (2, 8),
                  "spotcheck": ("teamCount", 0, 3372)}
-        check_frame(season, tdata)
-        assert isinstance(season, server.Dframe)
+        CheckResults.frame(season, tdata)
 
 
 class TestDistricts(object):
 
-    def test_df(self):
-        sn = api.Session(auth.username, auth.key, season=2017)
-        districts = api.get_districts(sn)
-        assert isinstance(districts, server.Dframe)
-        assert districts.attr["frame_type"] == "districts"
-        assert districts.shape == (10, 3)
-        assert districts["code"][0] == "IN"
+    # noinspection PyShadowingNames
+    def test_df(self, session):
+        districts = api.get_districts(session)
+        tdata = {"frame_type": "districts", "shape": (10, 3),
+                 "spotcheck": ("code", 0, "IN")}
+        CheckResults.frame(districts, tdata)
+
+        lmod = server.httpdate_addsec(districts.attr["Last-Modified"], True)
+        dist2 = api.get_districts(session, mod_since=lmod)
+        CheckResults.mod_since(dist2, lmod)
 
 
 class TestEvents(object):
@@ -159,10 +176,11 @@ class TestModifiedSince(object):
         last_mod = dist["Last-Modified"]
         print()
         print(last_mod)
-        dtm = server.httpdate_to_datetime(last_mod)
-        dtm_new = dtm + datetime.timedelta(seconds=1)
-        last_mod_new = server.datetime_to_httpdate(dtm_new)
+        # dtm = server.httpdate_to_datetime(last_mod)
+        # dtm_new = dtm + datetime.timedelta(seconds=1)
+        # last_mod_new = server.datetime_to_httpdate(dtm_new)
+        last_mod_new = server.httpdate_addsec(last_mod, True)
         dist_lm = api.get_districts(sn, mod_since=last_mod_new)
         assert dist_lm["text"] is None
+        assert dist_lm["code"] == 304
         print(dist_lm["mod_since"])
-

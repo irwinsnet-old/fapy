@@ -212,7 +212,7 @@ def send_http_request(session, url, cmd, mod_since=None, only_mod_since=None):
         data["text_format"] = "json"
 
     hdrs = {"Accept": format_header, "Authorization": token}
-    if mod_since is not None and httpdate_to_datetime(mod_since):
+    if mod_since is not None and httpdate_to_datetime(mod_since, True):
         hdrs["If-Modified-Since"] = mod_since
     if only_mod_since is not None and httpdate_to_datetime(only_mod_since):
         hdrs["FMS-OnlyModifiedSince"] = only_mod_since
@@ -316,20 +316,30 @@ class Dframe(pandas.DataFrame):
         """
         # Provide a version of constructor that takes dataframe for
         #     pandas.concat function.
-        if not isinstance(response, dict):
+        if isinstance(response, pandas.DataFrame):
             super().__init__(response)
             self._attr = None
             return
-        if (record_path is None) and (meta is None):
-            frame = pandas.read_json("[" + response["text"] + "]",
-                                     orient="records", typ="frame")
+
+        # Check for incorrect argument type, must be either Dataframe or dict
+        if not isinstance(response, dict):
+            raise ArgumentError("response argument must be a Pandas dataframe "
+                                "or a Python dictionary object.")
+
+        # Check for empty response
+        if response["code"] == 304 and response["text"] is None:
+            super().__init__({"If-Modified-Since": response["mod_since"]}, [0])
+        # Convert json text to dataframe
+        elif (record_path is None) and (meta is None):
+            super().__init__(pandas.read_json("[" + response["text"] + "]",
+                                              orient="records", typ="frame"))
         else:
             json_data = json.loads(response["text"])
             if extract is not None:
                 json_data = json_data[extract]
-            frame = pj.json_normalize(json_data, record_path=record_path,
-                                      meta=meta)
-        super().__init__(frame)
+            super().__init__(pj.json_normalize(json_data,
+                                               record_path=record_path,
+                                               meta=meta))
         self._attr = response
 
     @property

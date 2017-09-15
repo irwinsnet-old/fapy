@@ -16,7 +16,7 @@ class TestSession(object):
         assert session.key == "key"
         assert session.season == int(
             datetime.date.today().strftime("%Y"))
-        assert session.format == "dataframe"
+        assert session.data_format == "dataframe"
         assert session.source == "production"
 
     def test_season(self):
@@ -33,11 +33,11 @@ class TestSession(object):
 
         with pytest.raises(TypeError):
             session = api.Session("username", "key")
-            session.format = True
+            session.data_format = True
 
         with pytest.raises(ValueError):
             session = api.Session("username", "key")
-            session.format = "yaml"
+            session.data_format = "yaml"
 
         with pytest.raises(TypeError):
             api.Session(42, "key")

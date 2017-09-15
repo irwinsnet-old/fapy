@@ -47,38 +47,6 @@ def _send_request(session, cmd, args=None, mod_since=None,
     return response
 
 
-def get_season(session, mod_since=None, only_mod_since=None):
-    """ Retrieves information on an FRC competition season_summary.
-
-    Args:
-        session: An instance of fapy.get.Session that contains
-            a valid username and authorization key.
-        mod_since: A string containing an HTTP formatted date and time.
-            Causes function to return None if no changes have been
-            made to the requested data since the date and time provided.
-            Optional.
-        only_mod_since: A string containing an HTTP formatted date and
-            time. Causes function to only return data that has
-            changed since the date and time provided. Optional.
-
-    Returns:
-        If Session.data_format == "json" or "xml", returns a Python
-        dictionary object containing the response text and additional
-        metadata. If Session.data_format == "dataframe", returns an instances
-        of fapy.http.FirstDF, which is a Pandas dataframe with
-        an additional `attr` property that contains a Python dictionary
-        with additional metadata.
-    """
-    response = _send_request(session, "season", None, mod_since, only_mod_since)
-    if session.data_format == "dataframe":
-        response_df = server.Dframe(response, "FRCChampionships",
-                                    ["eventCount", "gameName", "kickoff",
-                                     "rookieStart", "teamCount"])
-        return response_df
-    else:
-        return response
-
-
 def get_status(session, mod_since=None, only_mod_since=None):
     """
     Retrieves server status.
@@ -108,6 +76,33 @@ def get_status(session, mod_since=None, only_mod_since=None):
         return response_df
     else:
         return response
+
+
+def get_season(session):
+    """ Retrieves information on an FRC competition season_summary.
+
+    Args:
+        session: An instance of fapy.get.Session that contains
+            a valid username and authorization key.
+
+    Returns:
+        If Session.data_format == "json" or "xml", returns a Python
+        dictionary object containing the response text and additional
+        metadata. If Session.data_format == "dataframe", returns an instances
+        of fapy.http.FirstDF, which is a Pandas dataframe with
+        an additional `attr` property that contains a Python dictionary
+        with additional metadata.
+    """
+    response = _send_request(session, "season", None)
+    if session.data_format == "dataframe":
+        response_df = server.Dframe(response, "FRCChampionships",
+                                    ["eventCount", "gameName", "kickoff",
+                                     "rookieStart", "teamCount"])
+        return response_df
+    else:
+        return response
+
+
 
 
 def get_districts(session, mod_since=None, only_mod_since=None):
