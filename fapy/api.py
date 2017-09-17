@@ -47,20 +47,13 @@ def _send_request(session, cmd, args=None, mod_since=None,
     return response
 
 
-def get_status(session, mod_since=None, only_mod_since=None):
+def get_status(session):
     """
     Retrieves server status.
 
     Args:
         session: An instance of fapy.classes.Session that contains
             a valid username and authorization key.
-        mod_since: A string containing an HTTP formatted date and time.
-            Causes function to return None if no changes have been
-            made to the requested data since the date and time provided.
-            Optional.
-        only_mod_since: A string containing an HTTP formatted date and
-            time. Causes function to only return data that has
-            changed since the date and time provided. Optional.
 
     Returns:
         If session.data_format == "json" or "xml", returns a Python
@@ -70,7 +63,7 @@ def get_status(session, mod_since=None, only_mod_since=None):
         an additional `attr` property that contains a Python dictionary
         with additional metadata.
     """
-    response = _send_request(session, "status", None, mod_since, only_mod_since)
+    response = _send_request(session, "status", None)
     if session.data_format == "dataframe":
         response_df = server.Dframe(response)
         return response_df
@@ -101,8 +94,6 @@ def get_season(session):
         return response_df
     else:
         return response
-
-
 
 
 def get_districts(session, mod_since=None, only_mod_since=None):
@@ -280,6 +271,7 @@ def get_teams(session,  # pylint: disable=too-many-arguments
                                      only_mod_since)
             response_lst.append(server.Dframe(response, cmd, meta_fields))
         response_df = pandas.concat(response_lst)
+        response_df.index = range(0, response_df.shape[0])
         response_df.attr = response_lst[-1].attr
     return response_df
 

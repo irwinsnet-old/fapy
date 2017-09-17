@@ -11,11 +11,6 @@ import fapy.server as server
 import auth
 
 
-@pytest.fixture
-def session():
-    return api.Session(auth.username, auth.key, season=2017)
-
-
 class CheckResults(object):
 
     @staticmethod
@@ -24,6 +19,9 @@ class CheckResults(object):
         assert isinstance(frame, server.Dframe)
         assert frame.attr["frame_type"] == test_data["frame_type"]
         assert frame.shape == test_data["shape"]
+        assert frame.index.min() == 0
+        assert frame.index.max() == (test_data["shape"][0] - 1)
+        assert frame.index.is_monotonic_increasing
         col, row, value = test_data["spotcheck"]
         assert frame[col][row] == value
         json.loads(frame.attr["text"])  # Verify that "text" is valid JSON text.
@@ -74,34 +72,55 @@ class CheckResults(object):
         assert attr["code"] == 304
         assert attr["mod_since"] == mod_since
 
+    @staticmethod
+    def only_mod_since(result, only_mod_since):
+        if isinstance(result, server.Dframe):
+            attr = result.attr
+            assert result["FMS-OnlyModifiedSince"][0] == only_mod_since
+        else:
+            attr = result
+        assert attr["text"] is None
+        assert attr["code"] == 304
+        assert attr["only_mod_since"] == only_mod_since
+
+
+class TestStatus(object):
+
+    def test_status(self):
+        sn = api.Session(auth.username, auth.key, season='2017')
+        status = api.get_status(sn)
+        tdata = {"frame_type": "status", "shape": (1, 3),
+                 "spotcheck": ("name", 0, "FIRST ROBOTICS COMPETITION API")}
+        CheckResults.frame(status, tdata)
+
 
 class TestSeason(object):
-    # noinspection PyShadowingNames
+
     def test_2017(self, session):
-        season = api.get_season(session)
+        sn = api.Session(auth.username, auth.key, season='2017')
+        season = api.get_season(sn)
         tdata = {"frame_type": "season", "shape": (2, 8),
                  "spotcheck": ("teamCount", 0, 3372)}
         CheckResults.frame(season, tdata)
 
-    # noinspection PyShadowingNames
-    def test_2016(self, session):
-        session.season = 2016
-        season = api.get_season(session)
+    def test_2016(self):
+        sn = api.Session(auth.username, auth.key, season='2016')
+        season = api.get_season(sn)
         tdata = {"frame_type": "season", "shape": (1, 8),
                  "spotcheck": ("teamCount", 0, 3140)}
         CheckResults.frame(season, tdata)
 
-    # noinspection PyShadowingNames
-    def test_xml(self, session):
-        session.data_format = "xml"
-        season = api.get_season(session)
+    def test_xml(self):
+        sn = api.Session(auth.username, auth.key, season='2017')
+        sn.data_format = "xml"
+        season = api.get_season(sn)
         tdata = {"frame_type": "season"}
         CheckResults.dict(season, tdata)
 
-    # noinspection PyShadowingNames
-    def test_local(self, session):
-        session.source = "local"
-        season = api.get_season(session)
+    def test_local(self):
+        sn = api.Session(auth.username, auth.key, season='2017')
+        sn.source = "local"
+        season = api.get_season(sn)
         tdata = {"frame_type": "season", "shape": (2, 8),
                  "spotcheck": ("teamCount", 0, 3372)}
         CheckResults.frame(season, tdata)
@@ -109,49 +128,50 @@ class TestSeason(object):
 
 class TestDistricts(object):
 
-    # noinspection PyShadowingNames
-    def test_df(self, session):
-        districts = api.get_districts(session)
+    def test_df(self):
+        sn = api.Session(auth.username, auth.key, season='2017')
+        districts = api.get_districts(sn)
         tdata = {"frame_type": "districts", "shape": (10, 3),
                  "spotcheck": ("code", 0, "IN")}
         CheckResults.frame(districts, tdata)
 
+        # Test no data and 304 code returned when mod_since used.
         lmod = server.httpdate_addsec(districts.attr["Last-Modified"], True)
-        dist2 = api.get_districts(session, mod_since=lmod)
+        dist2 = api.get_districts(sn, mod_since=lmod)
         CheckResults.mod_since(dist2, lmod)
+
+        # Test no data and 304 code returned when only_mod_since used.
+        dist3 = api.get_districts(sn, only_mod_since=lmod)
+        CheckResults.only_mod_since(dist3, lmod)
 
 
 class TestEvents(object):
 
     def test_df(self):
-        sn = api.Session(auth.username, auth.key, season=2017)
+        sn = api.Session(auth.username, auth.key, season='2017')
         events = api.get_events(sn, district="PNW")
-        assert isinstance(events, server.Dframe)
-        assert events.attr["frame_type"] == "events"
-        assert events.shape == (10, 15)
-        assert events["code"][0] == "ORLAK"
+        tdata = {"frame_type": "events", "shape": (10, 15),
+                 "spotcheck": ("code", 0, "ORLAK")}
+        CheckResults.frame(events, tdata)
 
+        # Test no data and 304 code returned when mod_since used.
+        lmod = server.httpdate_addsec(events.attr["Last-Modified"], True)
+        events2 = api.get_events(sn, district="PNW", mod_since=lmod)
+        CheckResults.mod_since(events2, lmod)
 
-class TestStatus(object):
-
-    def test_df(self):
-        sn = api.Session(auth.username, auth.key, season=2017)
-        status = api.get_status(sn)
-        assert isinstance(status, server.Dframe)
-        assert status.attr["frame_type"] == "status"
-        assert status.shape == (1, 3)
-        assert status["version"][0] == 2
+        # Test no data and 304 code returned when only_mod_since used.
+        events3 = api.get_events(sn, district="PNW", only_mod_since=lmod)
+        CheckResults.only_mod_since(events3, lmod)
 
 
 class TestTeams(object):
 
     def test_df(self):
-        sn = api.Session(auth.username, auth.key)
+        sn = api.Session(auth.username, auth.key, season='2017')
         teams = api.get_teams(sn, district="PNW")
-        assert isinstance(teams, server.Dframe)
-        assert teams.attr["frame_type"] == "teams"
-        assert teams.shape == (155, 16)
-        assert teams["teamNumber"].iloc[0] == 360
+        tdata = {"frame_type": "teams", "shape": (155, 16),
+                 "spotcheck": ("teamNumber", 13, 1318)}
+        CheckResults.frame(teams, tdata)
 
 
 class TestSchedule(object):

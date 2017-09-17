@@ -314,21 +314,25 @@ class Dframe(pandas.DataFrame):
             meta: (List of Strings) A list of JSON names that identify
                 JSON values that will be added to each dataframe row.
         """
-        # Provide a version of constructor that takes dataframe for
-        #     pandas.concat function.
-        if isinstance(response, pandas.DataFrame):
+
+        # Accept dataframe for pandas.concat function ==========================
+        if not isinstance(response, dict):
             super().__init__(response)
             self._attr = None
             return
 
-        # Check for incorrect argument type, must be either Dataframe or dict
-        if not isinstance(response, dict):
-            raise ArgumentError("response argument must be a Pandas dataframe "
-                                "or a Python dictionary object.")
-
-        # Check for empty response
+        # Convert dict object to dataframe =====================================
+        # Create empty dataframe if no data returned due to no recent
+        # changes to FIRST data
         if response["code"] == 304 and response["text"] is None:
-            super().__init__({"If-Modified-Since": response["mod_since"]}, [0])
+            if response["mod_since"] is not None:
+                frame_data = {"If-Modified-Since": response["mod_since"]}
+            else:
+                assert response["only_mod_since"] is not None
+                frame_data = {"FMS-OnlyModifiedSince":
+                              response["only_mod_since"]}
+            super().__init__(frame_data, [0])
+
         # Convert json text to dataframe
         elif (record_path is None) and (meta is None):
             super().__init__(pandas.read_json("[" + response["text"] + "]",
