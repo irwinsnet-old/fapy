@@ -173,34 +173,29 @@ class TestTeams(object):
                  "spotcheck": ("teamNumber", 13, 1318)}
         CheckResults.frame(teams, tdata)
 
+        lmod = server.httpdate_addsec(teams.attr["Last-Modified"], True)
+        teams2 = api.get_teams(sn, district="PNW", mod_since=lmod)
+        CheckResults.mod_since(teams2, lmod)
+
+    def test_page(self):
+        sn = api.Session(auth.username, auth.key, season='2017')
+        teams = api.get_teams(sn, district="PNW", page="2")
+        tdata = {"frame_type": "teams", "shape": (65, 16),
+                 "spotcheck": ("nameShort", 64, "Aluminati")}
+        CheckResults.frame(teams, tdata)
+
+        lmod = server.httpdate_addsec(teams.attr["Last-Modified"], True)
+        teams2 = api.get_teams(sn, district="PNW", page="2",
+                               only_mod_since=lmod)
+        CheckResults.only_mod_since(teams2, lmod)
+
 
 class TestSchedule(object):
 
     def test_df(self):
         sn = api.Session(auth.username, auth.key, season='2017')
-        schedule = api.get_schedule(sn, event="PNCMP")
-        assert isinstance(schedule, server.Dframe)
-        assert schedule.attr["frame_type"] == "schedule"
-        assert list(schedule) == ['station', 'surrogate', 'teamNumber',
-                                  'matchNumber', 'description', 'field',
-                                  'startTime', 'tournamentLevel']
-        assert schedule.shape == (768, 8)
-        assert schedule["teamNumber"].iloc[0] == 2910
+        schedule = api.get_schedule(sn, event="TURING", team="1318")
+        tdata = {"frame_type": "schedule", "shape": (60, 8),
+                 "spotcheck": ("teamNumber", 3, 1318)}
+        CheckResults.frame(schedule, tdata)
 
-
-class TestModifiedSince(object):
-
-    def test_modified_since(self):
-        sn = api.Session(auth.username, auth.key, data_format="json")
-        dist = api.get_districts(sn)
-        last_mod = dist["Last-Modified"]
-        print()
-        print(last_mod)
-        # dtm = server.httpdate_to_datetime(last_mod)
-        # dtm_new = dtm + datetime.timedelta(seconds=1)
-        # last_mod_new = server.datetime_to_httpdate(dtm_new)
-        last_mod_new = server.httpdate_addsec(last_mod, True)
-        dist_lm = api.get_districts(sn, mod_since=last_mod_new)
-        assert dist_lm["text"] is None
-        assert dist_lm["code"] == 304
-        print(dist_lm["mod_since"])

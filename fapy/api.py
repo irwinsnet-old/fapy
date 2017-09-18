@@ -245,9 +245,6 @@ def get_teams(session,  # pylint: disable=too-many-arguments
                               or state is not None)):
         raise server.ArgumentError("If you specify team, you cannot "
                                    "specify event, district, or state.")
-    if session.data_format == "dataframe" and page is not None:
-        warnings.warn("Do not specify page argument for dataframe "
-                      "data_format.")
 
     cmd = "teams"
     team_args = {"teamNumber": team, "eventCode": event,
@@ -261,6 +258,9 @@ def get_teams(session,  # pylint: disable=too-many-arguments
     meta_fields = ["teamCountTotal", "teamCountPage",
                    "pageCurrent", "pageTotal"]
     response_lst = [server.Dframe(response, cmd, meta_fields)]
+    if (page is not None) or (response_lst[0].attr["code"] == 304):
+        return response_lst[0]
+
     pages = response_lst[0]["pageTotal"][0]
     if pages == 1:
         return response_lst[0]
