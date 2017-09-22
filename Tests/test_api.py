@@ -1,4 +1,3 @@
-import datetime
 import json
 import re
 # noinspection PyPep8Naming
@@ -14,8 +13,8 @@ import auth
 class CheckResults(object):
 
     @staticmethod
-    def frame(frame, test_data):
-        CheckResults.attr(frame.attr)
+    def frame(frame, test_data, mod_time=None):
+        CheckResults.attr(frame.attr, mod_time)
         assert isinstance(frame, server.Dframe)
         assert frame.attr["frame_type"] == test_data["frame_type"]
         assert frame.shape == test_data["shape"]
@@ -40,13 +39,22 @@ class CheckResults(object):
                         "'json'. Instead contains " + dictionary["text_format"])
 
     @staticmethod
-    def attr(attr):
+    def attr(attr, mod_time=None):
         assert attr["code"] == 200
-        assert server.httpdate_to_datetime(attr["Last-Modified"])
+        if "Last-Modified" in attr.keys():
+            assert server.httpdate_to_datetime(attr["Last-Modified"])
+        else:
+            assert attr["frame_type"] in ["status"]
         assert server.httpdate_to_datetime(attr["time_downloaded"], False)
-        assert attr["mod_since"] is None
-        assert attr["only_mod_since"] is None
-        assert re.match("https://frc-api.firstinspires.org/v2.0/20",
+        if mod_time is None:
+            assert attr["mod_since"] is None
+            assert attr["only_mod_since"] is None
+        else:
+            assert ((attr["mod_since"] is None) or
+                    (attr["only_mod_since"] is None))
+            assert ((attr["mod_since"] == mod_time) or
+                    (attr["only_mod_since"] == mod_time))
+        assert re.match("https://frc-api.firstinspires.org/v2.0",
                         attr["url"]) is not None
         CheckResults.local(attr)
 
@@ -55,33 +63,36 @@ class CheckResults(object):
         assert (attr["local_data"] is True) or (attr["local_data"] is False)
         if attr["local_data"]:
             assert server.httpdate_to_datetime(attr["local_time"], False)
-            assert re.match("https://frc-api.firstinspires.org/v2.0/20",
+            assert re.match("https://frc-api.firstinspires.org/v2.0",
                             attr["requested_url"]) is not None
         else:
             assert attr["local_time"] is None
             assert attr["requested_url"] == attr["url"]
 
     @staticmethod
-    def mod_since(result, mod_since):
+    def empty(result, mod_time):
         if isinstance(result, server.Dframe):
             attr = result.attr
-            assert result["If-Modified-Since"][0] == mod_since
         else:
             attr = result
-        assert attr["text"] is None
-        assert attr["code"] == 304
-        assert attr["mod_since"] == mod_since
 
-    @staticmethod
-    def only_mod_since(result, only_mod_since):
-        if isinstance(result, server.Dframe):
-            attr = result.attr
-            assert result["FMS-OnlyModifiedSince"][0] == only_mod_since
-        else:
-            attr = result
         assert attr["text"] is None
         assert attr["code"] == 304
-        assert attr["only_mod_since"] == only_mod_since
+        if attr["mod_since"] is not None:
+            frame_col_name = "If-Modified-Since"
+            assert attr["mod_since"] == mod_time
+            assert attr["only_mod_since"] is None
+        elif attr["only_mod_since"] is not None:
+            frame_col_name = "FMS-OnlyModifiedSince"
+            assert attr["only_mod_since"] == mod_time
+            assert attr["mod_since"] is None
+        else:
+            # Test should fail if both "mod_since" and "only_mod_since" are None
+            assert attr["mod_since"] is not None
+            assert attr["only_mod_since"] is not None
+            frame_col_name = ""
+        if isinstance(result, server.Dframe):
+            assert result[frame_col_name][0] == mod_time
 
 
 class TestStatus(object):
@@ -96,7 +107,7 @@ class TestStatus(object):
 
 class TestSeason(object):
 
-    def test_2017(self, session):
+    def test_2017(self):
         sn = api.Session(auth.username, auth.key, season='2017')
         season = api.get_season(sn)
         tdata = {"frame_type": "season", "shape": (2, 8),
@@ -138,11 +149,11 @@ class TestDistricts(object):
         # Test no data and 304 code returned when mod_since used.
         lmod = server.httpdate_addsec(districts.attr["Last-Modified"], True)
         dist2 = api.get_districts(sn, mod_since=lmod)
-        CheckResults.mod_since(dist2, lmod)
+        CheckResults.empty(dist2, lmod)
 
         # Test no data and 304 code returned when only_mod_since used.
         dist3 = api.get_districts(sn, only_mod_since=lmod)
-        CheckResults.only_mod_since(dist3, lmod)
+        CheckResults.empty(dist3, lmod)
 
 
 class TestEvents(object):
@@ -157,11 +168,11 @@ class TestEvents(object):
         # Test no data and 304 code returned when mod_since used.
         lmod = server.httpdate_addsec(events.attr["Last-Modified"], True)
         events2 = api.get_events(sn, district="PNW", mod_since=lmod)
-        CheckResults.mod_since(events2, lmod)
+        CheckResults.empty(events2, lmod)
 
         # Test no data and 304 code returned when only_mod_since used.
         events3 = api.get_events(sn, district="PNW", only_mod_since=lmod)
-        CheckResults.only_mod_since(events3, lmod)
+        CheckResults.empty(events3, lmod)
 
 
 class TestTeams(object):
@@ -175,7 +186,7 @@ class TestTeams(object):
 
         lmod = server.httpdate_addsec(teams.attr["Last-Modified"], True)
         teams2 = api.get_teams(sn, district="PNW", mod_since=lmod)
-        CheckResults.mod_since(teams2, lmod)
+        CheckResults.empty(teams2, lmod)
 
     def test_page(self):
         sn = api.Session(auth.username, auth.key, season='2017')
@@ -187,7 +198,7 @@ class TestTeams(object):
         lmod = server.httpdate_addsec(teams.attr["Last-Modified"], True)
         teams2 = api.get_teams(sn, district="PNW", page="2",
                                only_mod_since=lmod)
-        CheckResults.only_mod_since(teams2, lmod)
+        CheckResults.empty(teams2, lmod)
 
 
 class TestSchedule(object):
@@ -199,3 +210,18 @@ class TestSchedule(object):
                  "spotcheck": ("teamNumber", 3, 1318)}
         CheckResults.frame(schedule, tdata)
 
+
+class TestHybrid(object):
+
+    def test_hybrid(self):
+        sn = api.Session(auth.username, auth.key, season='2017')
+        hybrid = api.get_hybrid(sn, event="TURING")
+        tdata = {"frame_type": "hybrid", "shape": (672, 16),
+                 "spotcheck": ("scoreBlueFinal", 670, 255)}
+        CheckResults.frame(hybrid, tdata)
+
+        lm = "Fri, 21 Apr 2017 13:43:00 GMT"
+        hyb2 = api.get_hybrid(sn, event="TURING", only_mod_since=lm)
+        tdata = {"frame_type": "hybrid", "shape": (348, 16),
+                 "spotcheck": ("matchNumber", 0, 55)}
+        CheckResults.frame(hyb2, tdata, lm)
