@@ -374,6 +374,45 @@ def get_hybrid(session, event,  # pylint: disable=too-many-arguments
         return response
 
 
+def get_matches(session, event,  # pylint: disable=too-many-arguments
+                level="qual", team=None, match=None, start=None, end=None,
+                mod_since=None, only_mod_since=None):
+
+    # Check for argument combinations not allowed by FIRST API
+    if match is not None or start is not None or end is not None:
+        if level is None:
+            raise server.ArgumentError("You must specify the level when you "
+                                       "specify match, start, or end.")
+    if team is not None and match is not None:
+        raise server.ArgumentError("You cannot specify both a team and a "
+                                   "match number.")
+    if (start is not None or end is not None) and match is not None:
+        raise server.ArgumentError("You cannot specify start or end if you "
+                                   "specify match.")
+
+    result_args = collections.OrderedDict([("/eventCode", event),
+                                           ("tournamentLevel", level),
+                                           ("teamNumber", team),
+                                           ("matchNumber", match),
+                                           ("start", start), ("end", end)])
+    response = _send_request(session, "matches", result_args, mod_since,
+                             only_mod_since)
+
+    if session.data_format == "dataframe":
+        response_df = server.Dframe(response, "Teams",
+                                    ["matchNumber", "description",
+                                     "tournamentLevel", "actualStartTime",
+                                     "postResultTime", "scoreRedFinal",
+                                     "scoreRedFoul", "scoreRedAuto",
+                                     "scoreBlueFinal", "scoreBlueFoul",
+                                     "scoreBlueAuto"],
+                                    "Matches")
+        response_df.attr["frame_type"] = "matches"
+        return response_df
+    else:
+        return response
+
+
 # noinspection PyAttributeOutsideInit
 class Session:
     """Contains information required for every FIRST API HTTP request.

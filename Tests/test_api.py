@@ -225,3 +225,10 @@ class TestHybrid(object):
         tdata = {"frame_type": "hybrid", "shape": (348, 16),
                  "spotcheck": ("matchNumber", 0, 55)}
         CheckResults.frame(hyb2, tdata, lm)
+
+
+class TestResults(object):
+
+    def test_results(self):
+        sn = api.Session(auth.username, auth.key, season='2017')
+        matches = api.get_matches(sn, event="TURING")
