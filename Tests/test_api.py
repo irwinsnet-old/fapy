@@ -227,8 +227,23 @@ class TestHybrid(object):
         CheckResults.frame(hyb2, tdata, lm)
 
 
-class TestResults(object):
+class TestMatches(object):
 
-    def test_results(self):
+    def test_matches(self):
         sn = api.Session(auth.username, auth.key, season='2017')
         matches = api.get_matches(sn, event="TURING")
+        tdata = {"frame_type": "matches", "shape": (672, 14),
+                 "spotcheck": ("teamNumber", 39, 1318)}
+        CheckResults.frame(matches, tdata)
+
+
+class TestScores(object):
+
+    def test_scores(self):
+        sn = api.Session(auth.username, auth.key, season='2017')
+        scores = api.get_scores(sn, event="TURING", level="playoff")
+        tdata = {"frame_type": "scores", "shape": (32, 36),
+                 "spotcheck": ("autoPoints", 21, 89)}
+        CheckResults.frame(scores, tdata)
+
+

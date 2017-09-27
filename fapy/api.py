@@ -413,6 +413,36 @@ def get_matches(session, event,  # pylint: disable=too-many-arguments
         return response
 
 
+def get_scores(session, event,  # pylint: disable=too-many-arguments
+               level="qual", team=None, match=None, start=None,
+               end=None, mod_since=None, only_mod_since=None):
+    # Check for argument combinations not allowed by FIRST API
+    if team is not None and match is not None:
+        raise server.ArgumentError("You cannot specify both a team and a "
+                                   "match number.")
+    if (start is not None or end is not None) and match is not None:
+        raise server.ArgumentError("You cannot specify start or end if "
+                                   "you specify match.")
+
+    score_args = collections.OrderedDict([("/eventCode", event),
+                                          ("/tournamentLevel", level),
+                                          ("teamNumber", team),
+                                          ("matchNumber", match),
+                                          ("start", start),
+                                          ("end", end)])
+
+    response = _send_request(session, "scores", score_args, mod_since,
+                             only_mod_since)
+    if session.data_format == "dataframe":
+        response_df = server.Dframe(response, "Alliances",
+                                    ["matchLevel", "matchNumber"],
+                                    "MatchScores")
+        response_df.attr["frame_type"] = "scores"
+        return response_df
+    else:
+        return response
+
+
 # noinspection PyAttributeOutsideInit
 class Session:
     """Contains information required for every FIRST API HTTP request.
