@@ -44,7 +44,10 @@ def _send_request(session, cmd, args=None, mod_since=None,
     else:
         response = server.send_http_request(session, url, cmd, mod_since,
                                             only_mod_since)
-    return response
+    if session.data_format == "dataframe":
+        return server.Dframe(response)
+    else:
+        return response
 
 
 def get_status(session):
@@ -63,12 +66,7 @@ def get_status(session):
         an additional `attr` property that contains a Python dictionary
         with additional metadata.
     """
-    response = _send_request(session, "status", None)
-    if session.data_format == "dataframe":
-        response_df = server.Dframe(response)
-        return response_df
-    else:
-        return response
+    return _send_request(session, "status", None)
 
 
 def get_season(session):
@@ -86,14 +84,7 @@ def get_season(session):
         an additional `attr` property that contains a Python dictionary
         with additional metadata.
     """
-    response = _send_request(session, "season", None)
-    if session.data_format == "dataframe":
-        response_df = server.Dframe(response, "FRCChampionships",
-                                    ["eventCount", "gameName", "kickoff",
-                                     "rookieStart", "teamCount"])
-        return response_df
-    else:
-        return response
+    return _send_request(session, "season", None)
 
 
 def get_districts(session, mod_since=None, only_mod_since=None):
@@ -119,13 +110,8 @@ def get_districts(session, mod_since=None, only_mod_since=None):
         an additional `attr` property that contains a Python dictionary
         with additional metadata.
     """
-    response = _send_request(session, "districts", None, mod_since,
-                             only_mod_since)
-    if session.data_format == "dataframe":
-        response_df = server.Dframe(response, "districts", ["districtCount"])
-        return response_df
-    else:
-        return response
+    return _send_request(session, "districts", None, mod_since,
+                         only_mod_since)
 
 
 def get_events(session,  # pylint: disable=too-many-arguments
@@ -185,13 +171,8 @@ def get_events(session,  # pylint: disable=too-many-arguments
     event_args = {"eventCode": event, "teamNumber": team,
                   "districtCode": district,
                   "excludeDistrict": exclude_district}
-    response = _send_request(session, "events", event_args, mod_since,
-                             only_mod_since)
-    if session.data_format == "dataframe":
-        response_df = server.Dframe(response, "Events", ["eventCount"])
-        return response_df
-    else:
-        return response
+    return _send_request(session, "events", event_args, mod_since,
+                         only_mod_since)
 
 
 def get_teams(session,  # pylint: disable=too-many-arguments
@@ -239,7 +220,6 @@ def get_teams(session,  # pylint: disable=too-many-arguments
         an additional `attr` property that contains a Python dictionary
         with additional metadata.
     """
-    # pylint: disable=too-many-locals
     # Check for un-allowed combinations of arguments
     if (team is not None and (event is not None or district is not None
                               or state is not None)):
@@ -250,15 +230,11 @@ def get_teams(session,  # pylint: disable=too-many-arguments
     team_args = {"teamNumber": team, "eventCode": event,
                  "districtCode": district, "state": state,
                  "page": page}
-    response = _send_request(session, cmd, team_args, mod_since,
-                             only_mod_since)
-    if session.data_format != "dataframe":
-        return response
+    response_lst = [_send_request(session, cmd, team_args, mod_since,
+                    only_mod_since)]
 
-    meta_fields = ["teamCountTotal", "teamCountPage",
-                   "pageCurrent", "pageTotal"]
-    response_lst = [server.Dframe(response, cmd, meta_fields)]
-    if (page is not None) or (response_lst[0].attr["code"] == 304):
+    if ((isinstance(response_lst[0], dict)) or (page is not None) or
+            (response_lst[0].attr["code"] == 304)):
         return response_lst[0]
 
     pages = response_lst[0]["pageTotal"][0]
@@ -267,9 +243,8 @@ def get_teams(session,  # pylint: disable=too-many-arguments
     else:
         for page_num in range(2, pages + 1):
             team_args["page"] = str(page_num)
-            response = _send_request(session, cmd, team_args, mod_since,
-                                     only_mod_since)
-            response_lst.append(server.Dframe(response, cmd, meta_fields))
+            response_lst.append(_send_request(session, cmd, team_args,
+                                              mod_since, only_mod_since))
         response_df = pandas.concat(response_lst)
         response_df.index = range(0, response_df.shape[0])
         response_df.attr = response_lst[-1].attr
@@ -284,10 +259,7 @@ def get_schedule(session, event,  # pylint: disable=too-many-arguments
     Args:
         session: An instance of fapy.classes.Session that contains
             a valid username and authorization key.
-        event: A string containing the FIRST API event code. If
-            included, function will return only teams that are
-            competing in that event. Use fapy.api.get_events to lookup
-            event codes. Optional.
+        event: A string containing the FIRST API event code.
         level: A string. If "qual", function will return the
             schedule for qualiification matches. If "playoff", will
             return schedule for playoff matches. Optional, default is
@@ -325,10 +297,11 @@ def get_schedule(session, event,  # pylint: disable=too-many-arguments
     response = _send_request(session, "schedule", sched_args, mod_since,
                              only_mod_since)
     if session.data_format == "dataframe":
-        response_df = server.Dframe(response, "Teams",
-                                    ["matchNumber", "description", "field",
-                                     "startTime", "tournamentLevel"],
-                                    "Schedule")
+        # response_df = server.Dframe(response, "Teams",
+        #                             ["matchNumber", "description", "field",
+        #                              "startTime", "tournamentLevel"],
+        #                             "Schedule")
+        response_df = server.Dframe(response)
         return response_df
     else:
         return response
@@ -337,18 +310,37 @@ def get_schedule(session, event,  # pylint: disable=too-many-arguments
 def get_hybrid(session, event,  # pylint: disable=too-many-arguments
                level="qual", start=None, end=None, mod_since=None,
                only_mod_since=None):
-    """
+    """Retrieves the FRC competition match schedule for the requested
+    event. For matches that have been played, the schedule will
+    include match scores.
 
     Args:
-        session:
-        event:
-        level:
-        start:
-        end:
-        mod_since:
-        only_mod_since:
+        session: An instance of fapy.classes.Session that contains
+            a valid username and authorization key.
+        event: A string containing the FIRST API event code.
+        level: A string. If "qual", function will return the
+            hybrid schedule for qualiification matches. If "playoff",
+            will return hybrid schedule for playoff matches. Optional,
+            default is "qual".
+        start: An integer. If specified, function will return
+            matches with match number equal to or higher than start.
+        end: An integer. If specified, function will return matches
+            with match number equal to or lower than end.
+        mod_since: A string containing an HTTP formatted date and time.
+            Causes function to return None if no changes have been
+            made to the requested data since the date and time provided.
+            Optional.
+        only_mod_since: A string containing an HTTP formatted date and
+            time. Causes function to only return data that has
+            changed since the date and time provided. Optional.
 
-    Returns:
+  Returns:
+        If session.data_format == "json" or "xml", returns a Python
+        dictionary object containing the response text and additional
+        metadata. If session.data_format == "dataframe", returns an instances
+        of fapy.server.Dframe, which is a Pandas dataframe with
+        an additional `attr` property that contains a Python dictionary
+        with metadata.
 
     """
     hybrid_args = collections.OrderedDict([("/eventCode", event),
@@ -360,14 +352,15 @@ def get_hybrid(session, event,  # pylint: disable=too-many-arguments
     response = _send_request(session, "schedule", hybrid_args, mod_since,
                              only_mod_since)
     if session.data_format == "dataframe":
-        response_df = server.Dframe(response, "Teams",
-                                    ["matchNumber", "description","startTime",
-                                     "tournamentLevel", "actualStartTime",
-                                     "postResultTime", "scoreRedFinal",
-                                     "scoreRedFoul", "scoreRedAuto",
-                                     "scoreBlueFinal", "scoreBlueFoul",
-                                     "scoreBlueAuto"],
-                                    "Schedule")
+        # response_df = server.Dframe(response, "Teams",
+        #                             ["matchNumber", "description","startTime",
+        #                              "tournamentLevel", "actualStartTime",
+        #                              "postResultTime", "scoreRedFinal",
+        #                              "scoreRedFoul", "scoreRedAuto",
+        #                              "scoreBlueFinal", "scoreBlueFoul",
+        #                              "scoreBlueAuto"],
+        #                             "Schedule")
+        response_df = server.Dframe(response)
         response_df.attr["frame_type"] = "hybrid"
         return response_df
     else:
@@ -399,14 +392,15 @@ def get_matches(session, event,  # pylint: disable=too-many-arguments
                              only_mod_since)
 
     if session.data_format == "dataframe":
-        response_df = server.Dframe(response, "Teams",
-                                    ["matchNumber", "description",
-                                     "tournamentLevel", "actualStartTime",
-                                     "postResultTime", "scoreRedFinal",
-                                     "scoreRedFoul", "scoreRedAuto",
-                                     "scoreBlueFinal", "scoreBlueFoul",
-                                     "scoreBlueAuto"],
-                                    "Matches")
+        # response_df = server.Dframe(response, "Teams",
+        #                             ["matchNumber", "description",
+        #                              "tournamentLevel", "actualStartTime",
+        #                              "postResultTime", "scoreRedFinal",
+        #                              "scoreRedFoul", "scoreRedAuto",
+        #                              "scoreBlueFinal", "scoreBlueFoul",
+        #                              "scoreBlueAuto"],
+        #                             "Matches")
+        response_df = server.Dframe(response)
         response_df.attr["frame_type"] = "matches"
         return response_df
     else:
@@ -434,9 +428,10 @@ def get_scores(session, event,  # pylint: disable=too-many-arguments
     response = _send_request(session, "scores", score_args, mod_since,
                              only_mod_since)
     if session.data_format == "dataframe":
-        response_df = server.Dframe(response, "Alliances",
-                                    ["matchLevel", "matchNumber"],
-                                    "MatchScores")
+        # response_df = server.Dframe(response, "Alliances",
+        #                             ["matchLevel", "matchNumber"],
+        #                             "MatchScores")
+        response_df = server.Dframe(response)
         response_df.attr["frame_type"] = "scores"
         return response_df
     else:

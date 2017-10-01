@@ -302,7 +302,7 @@ class Dframe(pandas.DataFrame):
     # #subclassing-pandas-data-structures
     metadata = ["attr", "frame_type"]
 
-    def __init__(self, response, record_path=None, meta=None, extract=None):
+    def __init__(self, response):
         """
 
         Args:
@@ -321,8 +321,7 @@ class Dframe(pandas.DataFrame):
             self._attr = None
             return
 
-        # Convert dict object to dataframe =====================================
-        # Create empty dataframe if no data returned due to no recent
+        # Create empty dataframe if no data returned due to no recent ==========
         # changes to FIRST data
         if response["code"] == 304 and response["text"] is None:
             if response["mod_since"] is not None:
@@ -332,15 +331,47 @@ class Dframe(pandas.DataFrame):
                 frame_data = {"FMS-OnlyModifiedSince":
                               response["only_mod_since"]}
             super().__init__(frame_data, [0])
+            self._attr = response
+            return
 
-        # Convert json text to dataframe
-        elif (record_path is None) and (meta is None):
+        # Convert json text to dataframe =======================================
+        json_data = json.loads(response["text"])
+        record_path = list()
+        meta = list()
+        # json_normalize function below will error if json_data
+        #   consists of a dict with a single item that is a list. So in
+        #   this case, extract list and make it top-level item in
+        #   json_data.
+        if len(json_data.keys()) == 1:
+            json_data = json_data[list(json_data.keys())[0]]
+            if not isinstance(json_data, list):
+                msg = ("Incorrect JSON format: When JSON consists of a "
+                       "dict with a single key, dict value must be a list.")
+                raise json.JSONDecodeError(msg)
+
+        # json_normalize function below requires identifying all keys
+        #   in JSON data that themselves contain lists and passing this
+        #   data as a list to the record_path argument. Other non-list
+        #   keys must be passed as a lit via the meta argument. This
+        #   enables json_normalize to flatten the data into a
+        #   dataframe.
+        if isinstance(json_data, dict):
+            items = json_data.items()
+        else:  # If not a dict, json_data must be a list of dicts.
+            items = json_data[0].items()
+        list_keys = map(lambda x: x[0] if isinstance(x[1], list) else False,
+                        items)
+        record_path = list(filter(lambda x: x, list_keys))
+        othr_keys = map(lambda x: x[0] if not isinstance(x[1], list) else False,
+                        items)
+        meta = list(filter(lambda x: x, othr_keys))
+
+        if not record_path:
+            # json_normalize will not accept json consisting of a
+            #   single dict with no nested lists.
             super().__init__(pandas.read_json("[" + response["text"] + "]",
                                               orient="records", typ="frame"))
         else:
-            json_data = json.loads(response["text"])
-            if extract is not None:
-                json_data = json_data[extract]
             super().__init__(pj.json_normalize(json_data,
                                                record_path=record_path,
                                                meta=meta))

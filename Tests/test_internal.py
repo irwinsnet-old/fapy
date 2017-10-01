@@ -84,3 +84,11 @@ class TestLocalData(object):
             print(type(local_data))
             print(local_data.keys())
             print(local_data["text"])
+
+
+class TestNormJSON(object):
+
+    def test_json(self):
+        os.chdir("C:/Users/stacy/OneDrive/Projects/FIRST_API/fapy/JSON")
+        with open("schedule.json") as file:
+            json_txt = file.read()
