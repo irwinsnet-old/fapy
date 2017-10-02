@@ -231,7 +231,7 @@ def get_teams(session,  # pylint: disable=too-many-arguments
                  "districtCode": district, "state": state,
                  "page": page}
     response_lst = [_send_request(session, cmd, team_args, mod_since,
-                    only_mod_since)]
+                                  only_mod_since)]
 
     if ((isinstance(response_lst[0], dict)) or (page is not None) or
             (response_lst[0].attr["code"] == 304)):
@@ -294,17 +294,8 @@ def get_schedule(session, event,  # pylint: disable=too-many-arguments
                                           ("start", start),
                                           ("end", end)])
 
-    response = _send_request(session, "schedule", sched_args, mod_since,
-                             only_mod_since)
-    if session.data_format == "dataframe":
-        # response_df = server.Dframe(response, "Teams",
-        #                             ["matchNumber", "description", "field",
-        #                              "startTime", "tournamentLevel"],
-        #                             "Schedule")
-        response_df = server.Dframe(response)
-        return response_df
-    else:
-        return response
+    return _send_request(session, "schedule", sched_args, mod_since,
+                         only_mod_since)
 
 
 def get_hybrid(session, event,  # pylint: disable=too-many-arguments
@@ -351,25 +342,50 @@ def get_hybrid(session, event,  # pylint: disable=too-many-arguments
 
     response = _send_request(session, "schedule", hybrid_args, mod_since,
                              only_mod_since)
-    if session.data_format == "dataframe":
-        # response_df = server.Dframe(response, "Teams",
-        #                             ["matchNumber", "description","startTime",
-        #                              "tournamentLevel", "actualStartTime",
-        #                              "postResultTime", "scoreRedFinal",
-        #                              "scoreRedFoul", "scoreRedAuto",
-        #                              "scoreBlueFinal", "scoreBlueFoul",
-        #                              "scoreBlueAuto"],
-        #                             "Schedule")
-        response_df = server.Dframe(response)
-        response_df.attr["frame_type"] = "hybrid"
-        return response_df
+    if isinstance(response, dict):
+        response["frame_type"] = "hybrid"
     else:
-        return response
+        response.attr["frame_type"] = "hybrid"
+    return response
 
 
 def get_matches(session, event,  # pylint: disable=too-many-arguments
                 level="qual", team=None, match=None, start=None, end=None,
                 mod_since=None, only_mod_since=None):
+    """Retrieves the match results for an FRC event.
+
+    Args:
+        session: An instance of fapy.classes.Session that contains
+            a valid username and authorization key.
+        event: A string containing the FIRST API event code.
+        level: A string. If "qual", function will return the
+            hybrid schedule for qualiification matches. If "playoff",
+            will return hybrid schedule for playoff matches. Optional,
+            default is "qual".
+        team: FRC team number as a string. If listed, function will
+            return data only for that team. Optional.
+        match: A string containing a match number. If specified,
+            get_matches returns data only for that match.
+        start: An integer. If specified, function will return
+            matches with match number equal to or higher than start.
+        end: An integer. If specified, function will return matches
+            with match number equal to or lower than end.
+        mod_since: A string containing an HTTP formatted date and time.
+            Causes function to return None if no changes have been
+            made to the requested data since the date and time provided.
+            Optional.
+        only_mod_since: A string containing an HTTP formatted date and
+            time. Causes function to only return data that has
+            changed since the date and time provided. Optional.
+
+  Returns:
+        If session.data_format == "json" or "xml", returns a Python
+        dictionary object containing the response text and additional
+        metadata. If session.data_format == "dataframe", returns an instances
+        of fapy.server.Dframe, which is a Pandas dataframe with
+        an additional `attr` property that contains a Python dictionary
+        with metadata.
+    """
 
     # Check for argument combinations not allowed by FIRST API
     if match is not None or start is not None or end is not None:
@@ -388,28 +404,47 @@ def get_matches(session, event,  # pylint: disable=too-many-arguments
                                            ("teamNumber", team),
                                            ("matchNumber", match),
                                            ("start", start), ("end", end)])
-    response = _send_request(session, "matches", result_args, mod_since,
-                             only_mod_since)
-
-    if session.data_format == "dataframe":
-        # response_df = server.Dframe(response, "Teams",
-        #                             ["matchNumber", "description",
-        #                              "tournamentLevel", "actualStartTime",
-        #                              "postResultTime", "scoreRedFinal",
-        #                              "scoreRedFoul", "scoreRedAuto",
-        #                              "scoreBlueFinal", "scoreBlueFoul",
-        #                              "scoreBlueAuto"],
-        #                             "Matches")
-        response_df = server.Dframe(response)
-        response_df.attr["frame_type"] = "matches"
-        return response_df
-    else:
-        return response
+    return _send_request(session, "matches", result_args, mod_since,
+                         only_mod_since)
 
 
 def get_scores(session, event,  # pylint: disable=too-many-arguments
                level="qual", team=None, match=None, start=None,
                end=None, mod_since=None, only_mod_since=None):
+    """Retrieves the detailed match scores for an FRC competition.
+
+    Args:
+        session: An instance of fapy.classes.Session that contains
+            a valid username and authorization key.
+        event: A string containing the FIRST API event code.
+        level: A string. If "qual", function will return the
+            hybrid schedule for qualiification matches. If "playoff",
+            will return hybrid schedule for playoff matches. Optional,
+            default is "qual".
+        team: FRC team number as a string. If listed, function will
+            return data only for that team. Optional.
+        match: A string containing a match number. If specified,
+            get_matches returns data only for that match.
+        start: An integer. If specified, function will return
+            matches with match number equal to or higher than start.
+        end: An integer. If specified, function will return matches
+            with match number equal to or lower than end.
+        mod_since: A string containing an HTTP formatted date and time.
+            Causes function to return None if no changes have been
+            made to the requested data since the date and time provided.
+            Optional.
+        only_mod_since: A string containing an HTTP formatted date and
+            time. Causes function to only return data that has
+            changed since the date and time provided. Optional.
+
+  Returns:
+        If session.data_format == "json" or "xml", returns a Python
+        dictionary object containing the response text and additional
+        metadata. If session.data_format == "dataframe", returns an instances
+        of fapy.server.Dframe, which is a Pandas dataframe with
+        an additional `attr` property that contains a Python dictionary
+        with metadata.
+    """
     # Check for argument combinations not allowed by FIRST API
     if team is not None and match is not None:
         raise server.ArgumentError("You cannot specify both a team and a "
@@ -425,17 +460,36 @@ def get_scores(session, event,  # pylint: disable=too-many-arguments
                                           ("start", start),
                                           ("end", end)])
 
-    response = _send_request(session, "scores", score_args, mod_since,
-                             only_mod_since)
-    if session.data_format == "dataframe":
-        # response_df = server.Dframe(response, "Alliances",
-        #                             ["matchLevel", "matchNumber"],
-        #                             "MatchScores")
-        response_df = server.Dframe(response)
-        response_df.attr["frame_type"] = "scores"
-        return response_df
-    else:
-        return response
+    return _send_request(session, "scores", score_args, mod_since,
+                         only_mod_since)
+
+
+def get_alliances(session, event, mod_since=None, only_mod_since=None):
+    """Retrieves the playoff alliances for an FRC competition.
+
+    Args:
+        session: An instance of fapy.classes.Session that contains
+            a valid username and authorization key.
+        event: A string containing the FIRST API event code.
+        mod_since: A string containing an HTTP formatted date and time.
+            Causes function to return None if no changes have been
+            made to the requested data since the date and time provided.
+            Optional.
+        only_mod_since: A string containing an HTTP formatted date and
+            time. Causes function to only return data that has
+            changed since the date and time provided. Optional.
+
+        If session.data_format == "json" or "xml", returns a Python
+        dictionary object containing the response text and additional
+        metadata. If session.data_format == "dataframe", returns an instances
+        of fapy.server.Dframe, which is a Pandas dataframe with
+        an additional `attr` property that contains a Python dictionary
+        with metadata.
+    """
+    alliance_args = collections.OrderedDict([("/eventCode", event)])
+
+    return _send_request(session, "alliances", alliance_args, mod_since,
+                         only_mod_since)
 
 
 # noinspection PyAttributeOutsideInit

@@ -247,3 +247,13 @@ class TestScores(object):
         CheckResults.frame(scores, tdata)
 
 
+class TestAlliances(object):
+
+    def test_alliances(self):
+        sn = api.Session(auth.username, auth.key, season='2017')
+        alliances = api.get_alliances(sn, event="TURING")
+        tdata = {"frame_type": "alliances", "shape": (8, 9),
+                 "spotcheck": ("captain", 2, 1318)}
+        CheckResults.frame(alliances, tdata)
+
+

@@ -22,6 +22,8 @@ import warnings
 import pandas
 from pandas.io import json as pj
 
+#todo(stacy.irwin): accept integer arguments for team numbers, start, end, etc.
+
 
 def build_url(session, command, http_args=None):
     """
@@ -193,7 +195,7 @@ def send_http_request(session, url, cmd, mod_since=None, only_mod_since=None):
         local_time:
         local_url:
     """
-    # pylint: disable=too-many-locals
+
     # Check arguments
     if(mod_since is not None) and (only_mod_since is not None):
         raise ArgumentError("Cannot specify both mod_since and "
@@ -347,7 +349,8 @@ class Dframe(pandas.DataFrame):
             if not isinstance(json_data, list):
                 msg = ("Incorrect JSON format: When JSON consists of a "
                        "dict with a single key, dict value must be a list.")
-                raise json.JSONDecodeError(msg)
+                raise json.JSONDecodeError(msg, doc=response["data_format"],
+                                           pos=0)
 
         # json_normalize function below requires identifying all keys
         #   in JSON data that themselves contain lists and passing this
