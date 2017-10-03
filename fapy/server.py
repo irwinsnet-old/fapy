@@ -372,8 +372,14 @@ class Dframe(pandas.DataFrame):
         if not record_path:
             # json_normalize will not accept json consisting of a
             #   single dict with no nested lists.
-            super().__init__(pandas.read_json("[" + response["text"] + "]",
-                                              orient="records", typ="frame"))
+            if isinstance(json_data, list):
+                dframe = pandas.read_json(json.dumps(json_data),
+                                          orient="records", typ="frame")
+                super().__init__(dframe)
+            else:
+                super().__init__(pandas.read_json("[" + response["text"] + "]",
+                                                  orient="records",
+                                                  typ="frame"))
         else:
             super().__init__(pj.json_normalize(json_data,
                                                record_path=record_path,

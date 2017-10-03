@@ -492,6 +492,40 @@ def get_alliances(session, event, mod_since=None, only_mod_since=None):
                          only_mod_since)
 
 
+def get_rankings(session, event, team=None, top=None, mod_since=None,
+                 only_mod_since=None):
+    """Retrieves the team rankings based on the qualification rounds.
+
+    Args:
+        session: An instance of fapy.classes.Session that contains
+            a valid username and authorization key.
+        event: A string containing the FIRST API event code.
+        team: FRC team number as a string. If listed, function will
+            return data only for that team. Optional.
+        top: The number of top-ranked teams to return in the result.
+            Optional. Default is to return all teams at the event.
+        mod_since: A string containing an HTTP formatted date and time.
+            Causes function to return None if no changes have been
+            made to the requested data since the date and time provided.
+            Optional.
+        only_mod_since: A string containing an HTTP formatted date and
+            time. Causes function to only return data that has
+            changed since the date and time provided. Optional.
+
+    Returns:
+
+    """
+    if team is not None and top is not None:
+        raise server.ArgumentError("You cannot specifiy both the team "
+                                   "and top arguments.")
+
+    rank_args = collections.OrderedDict([("/eventCode", event),
+                                         ("teamNumber", team),
+                                         ("top", top)])
+    return _send_request(session, "rankings", rank_args, mod_since,
+                         only_mod_since)
+
+
 # noinspection PyAttributeOutsideInit
 class Session:
     """Contains information required for every FIRST API HTTP request.

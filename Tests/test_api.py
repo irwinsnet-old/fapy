@@ -257,3 +257,11 @@ class TestAlliances(object):
         CheckResults.frame(alliances, tdata)
 
 
+class TestRankings(object):
+
+    def test_rankings(self):
+        sn = api.Session(auth.username, auth.key, season='2017')
+        rankings = api.get_rankings(sn, event="TURING")
+        tdata = {"frame_type": "rankings", "shape": (67, 14),
+                 "spotcheck": ("teamNumber", 2, 1318)}
+
