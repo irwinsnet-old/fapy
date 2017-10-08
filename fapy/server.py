@@ -23,6 +23,7 @@ import pandas
 from pandas.io import json as pj
 
 #todo(stacy.irwin): accept integer arguments for team numbers, start, end, etc.
+#todo(stacy.irwin): Rewrite build_url so it doesn't know about season or status.
 
 
 def build_url(session, command, http_args=None):
@@ -69,7 +70,7 @@ def build_url(session, command, http_args=None):
                     url += ("?" if first_arg else "&")
                     if isinstance(value, bool):
                         value = str(value).lower()
-                    url += arg_name + "=" + value
+                    url += arg_name + "=" + str(value)
                     first_arg = False
     return url
 
@@ -166,16 +167,21 @@ def send_http_request(session, url, cmd, mod_since=None, only_mod_since=None):
     a Pandas dataframe.
 
     Args:
-        session: An instance of fapy.classes.Session that contains
+        session:
+            An instance of fapy.classes.Session that contains
             a valid username and authorization key.
-        url: A string containing the url that will be sent to the
+        url:
+            A string containing the url that will be sent to the
             FIRST API server.
-        cmd: A string specifying the FIRST API command.
-        mod_since: A string containing an HTTP formatted date and time.
+        cmd:
+            A string specifying the FIRST API command.
+        mod_since:
+            A string containing an HTTP formatted date and time.
             Causes send_http_request() to return None if no changes have been
             made to the requested data since the date and time provided.
             Optional.
-        only_mod_since: A string containing an HTTP formatted date and
+        only_mod_since:
+            A string containing an HTTP formatted date and
             time. Causes send_http_request() to only return data that has
             changed since the date and time provided. Optional.
 
@@ -185,15 +191,9 @@ def send_http_request(session, url, cmd, mod_since=None, only_mod_since=None):
         an `attr` property. The `attr` property is a Python dictionary
         with the keys listed below.
         If session.data_format == "schedule.json" or "xml", returns a Python
-        dictionary object with the keys listed below.
+        dictionary object with the xml or json text accessible via the "text"
+        attribute.
 
-        text: The JSON or XML response text.
-        url: The URL that was sent to the FIRST API server.
-        time_downloaded: The date and time that the data was downloaded
-            from the FIRST API server.
-        local_data:
-        local_time:
-        local_url:
     """
 
     # Check arguments

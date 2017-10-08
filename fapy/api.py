@@ -1,19 +1,50 @@
-"""Functions for downloading FRC event data from FIRST API.
+"""
 
-All functions for downloading FIRST API data require an instance of
-the Session class, which contains the account username, authorization
-key, competition season, etc. The functions in this module return
-either an instance of fapy.http.FIRSTDf, which is a subclassed pandas
-dataframe with additional metadata, or an instance of
-fapy.http.FIRSTResponse, which acts like a Python dictionary.
+Output of fapy Functions
+========================
 
-License:
-    GNU General Public License v3.0
+The fapy package is intended to provide it's output as _Pandas_
+dataframes, a powerful tabular format that supports basic sorting and
+filtering, as well as many advanced data analysis techniques. By
+default, fapy functions provide a `server.DFrame` object, which is a
+sublcass of the ``Pandas.Dataframe`` object. The only difference
+between the `'Pandas.Dataframe'` and `server.DFrame` classes is that
+the DFrame has an _attr_ property that contains a python dictionary
+with FIRST API metadata, such as the time the data was downloaded from
+the FIRST API, and the URL used to obtain the data. Users can use the
+_Pandas_ module to manipulate ``server.DFrame`` objects just as they
+would ``Pandas.dataframe`` objects.
 
-Version:
-    0.0.1
+Fapy functions can also return Python dictionaries containing both
+the requested data in either XML or JSON format and metadata. To
+obtain XML or JSON data, set the `api.Session` objects data_format
+property to either "xml" or "json". The XML or JSON text will be
+available via the "text" key of the returned Python dictionary.
 
-Copyright 2017, Stacy Irwin
+Common fapy Function Arguments
+==============================
+
+Fapy functions that send HTTP requests to the FIRST API all require
+many of the same arguments.
+
+**session**
+    An instance of ``fapy.classes.Session`` that contains a valid
+    username and authorization key. Other useful properties of
+    ``Session`` object include _season_ (2015, 2016, 2017, etc.)
+    and _data/_format_ ("dataframe", "xml", or "json"). The
+    _session_ argument is always required.
+
+**event**
+    A string containing a FIRST API event code. Most fapy functions
+    apply only to a single event, therefore we must specify the FRC
+    event as an argument. For example, the event code for the Turing
+    subdivision at the Houston FIRST World Champiionships is "TURING",
+    and the event code for the district event in Mt. Vernon, WA is
+
+
+
+
+
 """
 import collections
 import datetime
@@ -26,16 +57,29 @@ import fapy.server as server
 
 def _send_request(session, cmd, args=None, mod_since=None,
                   only_mod_since=None):
-    """
+    """Routes data request to correct internal functions.
 
     Args:
         session:
+            An instance of fapy.classes.Session that contains
+            a valid username and authorization key.
         cmd:
-        args: A Python dictionary.
+            A string that identifies the FIRST API command.
+        args:
+            A Python dictionary.
         mod_since:
+            A string containing an HTTP formatted date and time.
+            Causes function to return None if no changes have been
+            made to the requested data since the date and time provided.
+            Optional.
         only_mod_since:
+            A string containing an HTTP formatted date and
+            time. Causes function to only return data that has
+            changed since the date and time provided. Optional.
 
     Returns:
+        Either a server.DFrame object (if session.data_format =
+        "dataframe") or a Python dictionary.
 
     """
     url = server.build_url(session, cmd, args)
@@ -51,11 +95,11 @@ def _send_request(session, cmd, args=None, mod_since=None,
 
 
 def get_status(session):
-    """
-    Retrieves server status.
+    """Retrieves server status.
 
     Args:
-        session: An instance of fapy.classes.Session that contains
+        session:
+            An instance of fapy.classes.Session that contains
             a valid username and authorization key.
 
     Returns:
@@ -73,7 +117,8 @@ def get_season(session):
     """ Retrieves information on an FRC competition season_summary.
 
     Args:
-        session: An instance of fapy.get.Session that contains
+        session:
+            An instance of fapy.get.Session that contains
             a valid username and authorization key.
 
     Returns:
@@ -92,13 +137,16 @@ def get_districts(session, mod_since=None, only_mod_since=None):
     Retrieves information on FIRST districts.
 
     Args:
-        session: An instance of fapy.classes.Session that contains
+        session:
+            An instance of fapy.classes.Session that contains
             a valid username and authorization key.
-        mod_since: A string containing an HTTP formatted date and time.
+        mod_since:
+            A string containing an HTTP formatted date and time.
             Causes function to return None if no changes have been
             made to the requested data since the date and time provided.
             Optional.
-        only_mod_since: A string containing an HTTP formatted date and
+        only_mod_since:
+            A string containing an HTTP formatted date and
             time. Causes function to only return data that has
             changed since the date and time provided. Optional.
 
@@ -118,25 +166,31 @@ def get_events(session,  # pylint: disable=too-many-arguments
                event=None, team=None, district=None,
                exclude_district=None, mod_since=None,
                only_mod_since=None):
-    """
-    Retrieves information on one or more FRC competitions.
+    """Retrieves information on one or more FRC competitions.
 
     Args:
-        session: An instance of fapy.classes.Session that contains
+        session:
+            An instance of fapy.classes.Session that contains
             a valid username and authorization key.
-        event: A string containing a FIRST event code.
-        team: The four digit FRC team number as an integer.
-        district: A string containing the FIRST district code, such as
+        event:
+            A string containing a FIRST event code.
+        team:
+            The four digit FRC team number as an integer.
+        district:
+            A string containing the FIRST district code, such as
             "PNW" for the Pacific Northwest district. Results will be
             filtered to the events occurring in that district. Use
             `districts()` to retrieve all district codes.
-        exclude_district: A Boolean value. If True, filters results to
+        exclude_district:
+            A Boolean value. If True, filters results to
             events that are not affiliated with a district.
-        mod_since: A string containing an HTTP formatted date and time.
+        mod_since:
+            A string containing an HTTP formatted date and time.
             Causes function to return None if no changes have been
             made to the requested data since the date and time provided.
             Optional.
-        only_mod_since: A string containing an HTTP formatted date and
+        only_mod_since:
+            A string containing an HTTP formatted date and
             time. Causes function to only return data that has
             changed since the date and time provided. Optional.
 
@@ -150,12 +204,12 @@ def get_events(session,  # pylint: disable=too-many-arguments
 
     Raises:
         fapy.Classes.ArgumentError:
-            * If the `event` argument is specified and any other
-              argument is specified in addition to `event` (i.e.,
-              if `event` is specified, no other arguments should be
-              used).
-            * If both the `district` and `exclude_district` arguments
-              are specified (i.e., use one or the other but not both).
+            If the `event` argument is specified and any other
+            argument is specified in addition to `event` (i.e.,
+            if `event` is specified, no other arguments should be
+            used).
+            If both the `district` and `exclude_district` arguments
+            are specified (i.e., use one or the other but not both).
     """
 
     # Check for un-allowed combinations of arguments
@@ -181,21 +235,27 @@ def get_teams(session,  # pylint: disable=too-many-arguments
     """Retrieves FRC teams from FIRST API Server.
 
     Args:
-        session: An instance of fapy.classes.Session that contains
+        session:
+            An instance of fapy.classes.Session that contains
             a valid username and authorization key.
-        team: FRC team number as a string. If listed, function will
+        team:
+            FRC team number as a string. If listed, function will
             return data only for that team. Optional.
-        event: A string containing the FIRST API event code. If
+        event:
+            A string containing the FIRST API event code. If
             included, function will return only teams that are
             competing in that event. Use fapy.api.get_events to lookup
             event codes. Optional.
-        district: A string containing the FIRST API district code. If
+        district:
+            A string containing the FIRST API district code. If
             included, function will only return teams that are
             competing in that event. Optional.
-        state: A string containing the name of the U.S. state, spelled
+        state:
+            A string containing the name of the U.S. state, spelled
             out. If included, function will only return teams that are
             located in that state.
-        page: A string containing the requested page number. The FIRST
+        page:
+            A string containing the requested page number. The FIRST
             API splits long lists of teams into several pages and only
             returns one page at a time. For XML and JSON data, if page
             is omitted, the FIRST API and this function will return
@@ -204,11 +264,13 @@ def get_teams(session,  # pylint: disable=too-many-arguments
             This argument is not needed if the dataframe data_format is
             requested becuase the function will request all pages of
             data and combine them into one dataframe. Optional.
-        mod_since: A string containing an HTTP formatted date and time.
+        mod_since:
+            A string containing an HTTP formatted date and time.
             Causes function to return None if no changes have been
             made to the requested data since the date and time provided.
             Optional.
-        only_mod_since: A string containing an HTTP formatted date and
+        only_mod_since:
+            A string containing an HTTP formatted date and
             time. Causes function to only return data that has
             changed since the date and time provided. Optional.
 
@@ -257,34 +319,43 @@ def get_schedule(session, event,  # pylint: disable=too-many-arguments
     """Rerieves the FRC competition match schedule.
 
     Args:
-        session: An instance of fapy.classes.Session that contains
+        session:
+            An instance of fapy.classes.Session that contains
             a valid username and authorization key.
-        event: A string containing the FIRST API event code.
-        level: A string. If "qual", function will return the
+        event:
+            A string containing the FIRST API event code.
+        level:
+            A string. If "qual", function will return the
             schedule for qualiification matches. If "playoff", will
             return schedule for playoff matches. Optional, default is
             "qual".
-        team: FRC team number as a string. If listed, function will
+        team:
+            FRC team number as a string. If listed, function will
             return data only for that team. Optional.
-        start: An integer. If specified, function will return
+        start:
+            An integer. If specified, function will return
             matches with match number equal to or higher than start.
-        end: An integer. If specified, function will return matches
+        end:
+            An integer. If specified, function will return matches
             with match number equal to or lower than end.
-        mod_since: A string containing an HTTP formatted date and time.
+        mod_since:
+            A string containing an HTTP formatted date and time.
             Causes function to return None if no changes have been
             made to the requested data since the date and time provided.
             Optional.
-        only_mod_since: A string containing an HTTP formatted date and
+        only_mod_since:
+            A string containing an HTTP formatted date and
             time. Causes function to only return data that has
             changed since the date and time provided. Optional.
 
-  Returns:
-        If session.data_format == "json" or "xml", returns a Python
-        dictionary object containing the response text and additional
-        metadata. If session.data_format == "dataframe", returns an instances
-        of fapy.server.Dframe, which is a Pandas dataframe with
-        an additional `attr` property that contains a Python dictionary
-        with additional metadata.
+      Returns:
+            If session.data_format == "json" or "xml", returns a Python
+            dictionary object containing the response text and additional
+            metadata. If session.data_format == "dataframe", returns an
+            instances
+            of fapy.server.Dframe, which is a Pandas dataframe with
+            an additional `attr` property that contains a Python dictionary
+            with additional metadata.
 
     """
 
@@ -301,37 +372,43 @@ def get_schedule(session, event,  # pylint: disable=too-many-arguments
 def get_hybrid(session, event,  # pylint: disable=too-many-arguments
                level="qual", start=None, end=None, mod_since=None,
                only_mod_since=None):
-    """Retrieves the FRC competition match schedule for the requested
-    event. For matches that have been played, the schedule will
-    include match scores.
+    """Retrieves the FRC competition match schedule.
 
     Args:
-        session: An instance of fapy.classes.Session that contains
+        session:
+            An instance of fapy.classes.Session that contains
             a valid username and authorization key.
-        event: A string containing the FIRST API event code.
-        level: A string. If "qual", function will return the
+        event:
+            A string containing the FIRST API event code.
+        level:
+            A string. If "qual", function will return the
             hybrid schedule for qualiification matches. If "playoff",
             will return hybrid schedule for playoff matches. Optional,
             default is "qual".
-        start: An integer. If specified, function will return
+        start:
+            An integer. If specified, function will return
             matches with match number equal to or higher than start.
-        end: An integer. If specified, function will return matches
+        end:
+            An integer. If specified, function will return matches
             with match number equal to or lower than end.
-        mod_since: A string containing an HTTP formatted date and time.
+        mod_since:
+            A string containing an HTTP formatted date and time.
             Causes function to return None if no changes have been
             made to the requested data since the date and time provided.
             Optional.
-        only_mod_since: A string containing an HTTP formatted date and
+        only_mod_since:
+            A string containing an HTTP formatted date and
             time. Causes function to only return data that has
             changed since the date and time provided. Optional.
 
-  Returns:
-        If session.data_format == "json" or "xml", returns a Python
-        dictionary object containing the response text and additional
-        metadata. If session.data_format == "dataframe", returns an instances
-        of fapy.server.Dframe, which is a Pandas dataframe with
-        an additional `attr` property that contains a Python dictionary
-        with metadata.
+        Returns:
+            If session.data_format == "json" or "xml", returns a Python
+            dictionary object containing the response text and additional
+            metadata. If session.data_format == "dataframe", returns an
+            instances
+            of fapy.server.Dframe, which is a Pandas dataframe with
+            an additional `attr` property that contains a Python dictionary
+            with metadata.
 
     """
     hybrid_args = collections.OrderedDict([("/eventCode", event),
@@ -355,36 +432,47 @@ def get_matches(session, event,  # pylint: disable=too-many-arguments
     """Retrieves the match results for an FRC event.
 
     Args:
-        session: An instance of fapy.classes.Session that contains
+        session:
+            An instance of fapy.classes.Session that contains
             a valid username and authorization key.
-        event: A string containing the FIRST API event code.
-        level: A string. If "qual", function will return the
+        event:
+            A string containing the FIRST API event code.
+        level:
+            A string. If "qual", function will return the
             hybrid schedule for qualiification matches. If "playoff",
             will return hybrid schedule for playoff matches. Optional,
             default is "qual".
-        team: FRC team number as a string. If listed, function will
+        team:
+            FRC team number as a string. If listed, function will
             return data only for that team. Optional.
-        match: A string containing a match number. If specified,
+        match:
+            A string containing a match number. If specified,
             get_matches returns data only for that match.
-        start: An integer. If specified, function will return
+        start:
+            An integer. If specified, function will return
             matches with match number equal to or higher than start.
-        end: An integer. If specified, function will return matches
+        end:
+            An integer. If specified, function will return matches
             with match number equal to or lower than end.
-        mod_since: A string containing an HTTP formatted date and time.
+        mod_since:
+            A string containing an HTTP formatted date and time.
             Causes function to return None if no changes have been
             made to the requested data since the date and time provided.
             Optional.
-        only_mod_since: A string containing an HTTP formatted date and
+        only_mod_since:
+            A string containing an HTTP formatted date and
             time. Causes function to only return data that has
             changed since the date and time provided. Optional.
 
-  Returns:
-        If session.data_format == "json" or "xml", returns a Python
-        dictionary object containing the response text and additional
-        metadata. If session.data_format == "dataframe", returns an instances
-        of fapy.server.Dframe, which is a Pandas dataframe with
-        an additional `attr` property that contains a Python dictionary
-        with metadata.
+      Returns:
+            If session.data_format == "json" or "xml", returns a Python
+            dictionary object containing the response text and additional
+            metadata. If session.data_format == "dataframe", returns an
+            instances
+            of fapy.server.Dframe, which is a Pandas dataframe with
+            an additional `attr` property that contains a Python dictionary
+            with metadata.
+
     """
 
     # Check for argument combinations not allowed by FIRST API
@@ -414,36 +502,47 @@ def get_scores(session, event,  # pylint: disable=too-many-arguments
     """Retrieves the detailed match scores for an FRC competition.
 
     Args:
-        session: An instance of fapy.classes.Session that contains
+        session:
+            An instance of fapy.classes.Session that contains
             a valid username and authorization key.
-        event: A string containing the FIRST API event code.
-        level: A string. If "qual", function will return the
+        event:
+            A string containing the FIRST API event code.
+        level:
+            A string. If "qual", function will return the
             hybrid schedule for qualiification matches. If "playoff",
             will return hybrid schedule for playoff matches. Optional,
             default is "qual".
-        team: FRC team number as a string. If listed, function will
+        team:
+            FRC team number as a string. If listed, function will
             return data only for that team. Optional.
-        match: A string containing a match number. If specified,
+        match:
+            A string containing a match number. If specified,
             get_matches returns data only for that match.
-        start: An integer. If specified, function will return
+        start:
+            An integer. If specified, function will return
             matches with match number equal to or higher than start.
-        end: An integer. If specified, function will return matches
+        end:
+            An integer. If specified, function will return matches
             with match number equal to or lower than end.
-        mod_since: A string containing an HTTP formatted date and time.
+        mod_since:
+            A string containing an HTTP formatted date and time.
             Causes function to return None if no changes have been
             made to the requested data since the date and time provided.
             Optional.
-        only_mod_since: A string containing an HTTP formatted date and
+        only_mod_since:
+            A string containing an HTTP formatted date and
             time. Causes function to only return data that has
             changed since the date and time provided. Optional.
 
-  Returns:
-        If session.data_format == "json" or "xml", returns a Python
-        dictionary object containing the response text and additional
-        metadata. If session.data_format == "dataframe", returns an instances
-        of fapy.server.Dframe, which is a Pandas dataframe with
-        an additional `attr` property that contains a Python dictionary
-        with metadata.
+      Returns:
+            If session.data_format == "json" or "xml", returns a Python
+            dictionary object containing the response text and additional
+            metadata. If session.data_format == "dataframe", returns an
+            instances
+            of fapy.server.Dframe, which is a Pandas dataframe with
+            an additional `attr` property that contains a Python dictionary
+            with metadata.
+
     """
     # Check for argument combinations not allowed by FIRST API
     if team is not None and match is not None:
@@ -468,23 +567,29 @@ def get_alliances(session, event, mod_since=None, only_mod_since=None):
     """Retrieves the playoff alliances for an FRC competition.
 
     Args:
-        session: An instance of fapy.classes.Session that contains
+        session:
+            An instance of fapy.classes.Session that contains
             a valid username and authorization key.
-        event: A string containing the FIRST API event code.
-        mod_since: A string containing an HTTP formatted date and time.
+        event:
+            A string containing the FIRST API event code.
+        mod_since:
+            A string containing an HTTP formatted date and time.
             Causes function to return None if no changes have been
             made to the requested data since the date and time provided.
             Optional.
-        only_mod_since: A string containing an HTTP formatted date and
+        only_mod_since:
+            A string containing an HTTP formatted date and
             time. Causes function to only return data that has
             changed since the date and time provided. Optional.
 
+    Returns:
         If session.data_format == "json" or "xml", returns a Python
         dictionary object containing the response text and additional
         metadata. If session.data_format == "dataframe", returns an instances
         of fapy.server.Dframe, which is a Pandas dataframe with
         an additional `attr` property that contains a Python dictionary
         with metadata.
+
     """
     alliance_args = collections.OrderedDict([("/eventCode", event)])
 
@@ -497,18 +602,24 @@ def get_rankings(session, event, team=None, top=None, mod_since=None,
     """Retrieves the team rankings based on the qualification rounds.
 
     Args:
-        session: An instance of fapy.classes.Session that contains
+        session:
+            An instance of fapy.classes.Session that contains
             a valid username and authorization key.
-        event: A string containing the FIRST API event code.
-        team: FRC team number as a string. If listed, function will
+        event:
+            A string containing the FIRST API event code.
+        team:
+            FRC team number as a string. If listed, function will
             return data only for that team. Optional.
-        top: The number of top-ranked teams to return in the result.
+        top:
+            The number of top-ranked teams to return in the result.
             Optional. Default is to return all teams at the event.
-        mod_since: A string containing an HTTP formatted date and time.
+        mod_since:
+            A string containing an HTTP formatted date and time.
             Causes function to return None if no changes have been
             made to the requested data since the date and time provided.
             Optional.
-        only_mod_since: A string containing an HTTP formatted date and
+        only_mod_since:
+            A string containing an HTTP formatted date and
             time. Causes function to only return data that has
             changed since the date and time provided. Optional.
 
@@ -542,7 +653,7 @@ class Session:
     STAGING_URL = "https://frc-staging-api.firstinspires.org"
     PRODUCTION_URL = "https://frc-api.firstinspires.org"
     FIRST_API_VERSION = "v2.0"
-    PACKAGE_VERSION = "0.9999"
+    PACKAGE_VERSION = "0.9"
     USER_AGENT_NAME = "fapy: Version" + PACKAGE_VERSION
 
     def __init__(self,  # pylint: disable=too-many-arguments
@@ -550,25 +661,21 @@ class Session:
                  data_format="dataframe", source="production"):
         """Creates a ``Session`` object.
 
-        *Arguments*
-            ``username`` (String)
+        Args:
+            username: (str)
                 The FIRST API account username
-            ``key`` (String)
+            key: (str)
                 The FIRST API authorization key
-            ``season`` (Integer)
+            season: (int)
                 A four digit year identifying the competition season
                 for which data will be retrieved. Optional, defaults
                 to the current calendar year.
-            ``data_format`` (String)
+            data_format:(str)
                 Specifies the format of the data that will be returned
                 by firstApiPY that submit HTTP requests. The allowed
                 values are *dataframe* (Pandas dataframe), *json*, and
                 *xml*. Optional, defaults to *dataframe*.
-            ``staging`` (Boolean)
-                If ``True``, fapy will submit the HTTP request to
-                the FIRST API staging server instead of the production
-                servers. This option should be used for system testing.
-                Optional, defaults to ``False``.
+
         """
 
         self.username = username

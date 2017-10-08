@@ -98,7 +98,7 @@ class CheckResults(object):
 class TestStatus(object):
 
     def test_status(self):
-        sn = api.Session(auth.username, auth.key, season='2017')
+        sn = api.Session(auth.username, auth.key, season=2017)
         status = api.get_status(sn)
         tdata = {"frame_type": "status", "shape": (1, 3),
                  "spotcheck": ("name", 0, "FIRST ROBOTICS COMPETITION API")}
@@ -205,7 +205,7 @@ class TestSchedule(object):
 
     def test_df(self):
         sn = api.Session(auth.username, auth.key, season='2017')
-        schedule = api.get_schedule(sn, event="TURING", team="1318")
+        schedule = api.get_schedule(sn, event="TURING", team=1318)
         tdata = {"frame_type": "schedule", "shape": (60, 8),
                  "spotcheck": ("teamNumber", 3, 1318)}
         CheckResults.frame(schedule, tdata)
